@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'login_screen.dart';
@@ -678,67 +679,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final scaffold = Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
+      appBar: AppBar(
+        toolbarHeight: 72,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        automaticallyImplyLeading: false,
+        backgroundColor: const Color(0xFFF7F8FC),
+        systemOverlayStyle: const SystemUiOverlayStyle(
+          statusBarColor: Color(0xFFF7F8FC),
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
+        titleSpacing: 20,
+        title: const Text(
+          'Profile',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF0F172A),
+          ),
+        ),
+        actions: const [
+          NotificationBellButton(),
+          SizedBox(width: 20),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 12,
+        ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top Bar (Preserved as requested)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Profile',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                  const NotificationBellButton(),
-                ],
+            _buildUserInfoCard(),
+            if (_activeBooking != null &&
+                (_bookingStatus == 'booked' ||
+                    _bookingStatus == 'pending')) ...[
+              const SizedBox(height: 16),
+              _buildCurrentSession(),
+            ],
+            const SizedBox(height: 20),
+            const Text(
+              'Your Statistics',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0F172A),
               ),
             ),
-
-            // Middle Section (Styled to match design)
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 8,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildUserInfoCard(),
-                    if (_activeBooking != null &&
-                        (_bookingStatus == 'booked' ||
-                            _bookingStatus == 'pending')) ...[
-                      const SizedBox(height: 16),
-                      _buildCurrentSession(),
-                    ],
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Your Statistics',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildStats(),
-                    const SizedBox(height: 18),
-                    _buildSettingsCard(),
-                    const SizedBox(height: 18),
-                    _buildLogoutButton(),
-                    const SizedBox(
-                      height: 100,
-                    ), // Space for floating bottom nav
-                  ],
-                ),
-              ),
-            ),
+            const SizedBox(height: 12),
+            _buildStats(),
+            const SizedBox(height: 18),
+            _buildSettingsCard(),
+            const SizedBox(height: 18),
+            _buildLogoutButton(),
+            const SizedBox(
+              height: 100,
+            ), // Space for floating bottom nav
           ],
         ),
       ),

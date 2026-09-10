@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/notification_service.dart';
@@ -673,52 +674,56 @@ class _SessionScreenState extends State<SessionScreen>
   Widget build(BuildContext context) {
     final scaffold = Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
+      appBar: AppBar(
+        toolbarHeight: 84,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        automaticallyImplyLeading: false,
+        backgroundColor: const Color(0xFFF7F8FC),
+        systemOverlayStyle: const SystemUiOverlayStyle(
+          statusBarColor: Color(0xFFF7F8FC),
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
+        titleSpacing: 20,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Top Bar
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _activeBooking == null
-                            ? 'My session'
-                            : (_bookingStatus == 'pending'
-                                ? 'Pending Confirmation'
-                                : "You're all set"),
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _activeBooking == null
-                            ? 'No active session'
-                            : (_bookingStatus == 'pending'
-                                ? 'Please scan the QR on the seat'
-                                : 'Your session has started successfully'),
-                        style: TextStyle(
-                          color: Colors.grey.shade500,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const NotificationBellButton(),
-                ],
+            Text(
+              _activeBooking == null
+                  ? 'My session'
+                  : (_bookingStatus == 'pending'
+                      ? 'Pending Confirmation'
+                      : "You're all set"),
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0F172A),
               ),
             ),
-            Expanded(child: _buildBody()),
+            const SizedBox(height: 4),
+            Text(
+              _activeBooking == null
+                  ? 'No active session'
+                  : (_bookingStatus == 'pending'
+                      ? 'Please scan the QR on the seat'
+                      : 'Your session has started successfully'),
+              style: TextStyle(
+                color: Colors.grey.shade500,
+                fontSize: 13,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
           ],
         ),
+        actions: const [
+          NotificationBellButton(),
+          SizedBox(width: 20),
+        ],
       ),
+      body: _buildBody(),
       bottomNavigationBar: widget.isTab
           ? null
           : AppBottomNav(
@@ -1256,6 +1261,7 @@ class _SessionScreenState extends State<SessionScreen>
                 ),
               ),
             ),
+          const SizedBox(height: 100),
         ],
       ),
     );

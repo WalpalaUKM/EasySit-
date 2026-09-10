@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -1335,7 +1336,13 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
         automaticallyImplyLeading: false,
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFF7F8FC),
+        systemOverlayStyle: const SystemUiOverlayStyle(
+          statusBarColor: Color(0xFFF7F8FC),
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
+        titleSpacing: 20,
         title: const Text(
           'Scan QR Code',
           style: TextStyle(
@@ -1348,9 +1355,17 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         actions: [
           Container(
             margin: const EdgeInsets.symmetric(vertical: 14),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF1F5F9),
+            decoration: BoxDecoration(
+              color: Colors.white,
               shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: IconButton(
               icon: const Icon(
@@ -1365,9 +1380,17 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           const SizedBox(width: 8),
           Container(
             margin: const EdgeInsets.symmetric(vertical: 14),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF1F5F9),
+            decoration: BoxDecoration(
+              color: Colors.white,
               shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: IconButton(
               icon: const Icon(

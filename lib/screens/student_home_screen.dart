@@ -48,6 +48,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
     WidgetsBinding.instance.addObserver(this);
     _currentGreeting = GreetingHelper.getGreeting();
     _startGreetingTimer();
+    _updateStatusBarForTab(_currentIndex);
 
     // Check for instant cached name from ProfileScreen notifier
     if (ProfileScreen.userNameNotifier.value.isNotEmpty) {
@@ -177,6 +178,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
           controller: _pageController,
           physics: const ClampingScrollPhysics(),
           onPageChanged: (index) {
+            _updateStatusBarForTab(index);
             if (index == 0 &&
                 ProfileScreen.userNameNotifier.value.isNotEmpty &&
                 _userName != ProfileScreen.userNameNotifier.value) {
@@ -341,8 +343,29 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
     } catch (_) {}
   }
 
+  void _updateStatusBarForTab(int index) {
+    if (index == 0) {
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+        ),
+      );
+    } else {
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          statusBarColor: Color(0xFFF7F8FC),
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
+      );
+    }
+  }
+
   void _onNavTab(int index) {
     if (index == _currentIndex) return;
+    _updateStatusBarForTab(index);
     if (index == 0 &&
         ProfileScreen.userNameNotifier.value.isNotEmpty &&
         _userName != ProfileScreen.userNameNotifier.value) {
