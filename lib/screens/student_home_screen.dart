@@ -38,6 +38,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
   String _userName = 'Student';
   String _currentGreeting = GreetingHelper.getGreeting();
   Timer? _greetingTimer;
+  StreamSubscription<DocumentSnapshot>? _userDocSub;
 
   @override
   void initState() {
@@ -47,8 +48,24 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
     WidgetsBinding.instance.addObserver(this);
     _currentGreeting = GreetingHelper.getGreeting();
     _startGreetingTimer();
+
+    // Check for instant cached name from ProfileScreen notifier
+    if (ProfileScreen.userNameNotifier.value.isNotEmpty) {
+      _userName = ProfileScreen.userNameNotifier.value;
+    }
+    ProfileScreen.userNameNotifier.addListener(_onProfileUserNameChanged);
+
     _getUserName();
     _checkAndReleaseExpiredBookings();
+  }
+
+  void _onProfileUserNameChanged() {
+    final name = ProfileScreen.userNameNotifier.value;
+    if (name.isNotEmpty && name != _userName && mounted) {
+      setState(() {
+        _userName = name;
+      });
+    }
   }
 
   @override
@@ -57,6 +74,8 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
     WidgetsBinding.instance.removeObserver(this);
     _greetingTimer?.cancel();
     _bookedListener?.cancel();
+    _userDocSub?.cancel();
+    ProfileScreen.userNameNotifier.removeListener(_onProfileUserNameChanged);
     super.dispose();
   }
 
@@ -98,27 +117,45 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
   Future<void> _getUserName() async {
     if (_user == null) return;
     try {
-      // Try to load from cache first for instant display
+      // 1. Try to load from cache first for instant display
       try {
         DocumentSnapshot cacheDoc = await _firestore
             .collection('users')
             .doc(_user.uid)
             .get(const GetOptions(source: Source.cache));
         if (cacheDoc.exists && mounted) {
-          setState(() {
-            _userName = cacheDoc.get('fullName') ?? 'Student';
-          });
+          final cachedName = (cacheDoc.get('fullName') ?? '').toString().trim();
+          if (cachedName.isNotEmpty) {
+            setState(() {
+              _userName = cachedName;
+            });
+            if (ProfileScreen.userNameNotifier.value != cachedName) {
+              ProfileScreen.userNameNotifier.value = cachedName;
+            }
+          }
         }
       } catch (_) {}
 
-      // Then update from server in the background
-      DocumentSnapshot userDoc =
-          await _firestore.collection('users').doc(_user.uid).get();
-      if (userDoc.exists && mounted) {
-        setState(() {
-          _userName = userDoc.get('fullName') ?? 'Student';
-        });
-      }
+      // 2. Real-time stream subscription: auto-updates name the millisecond it changes
+      _userDocSub?.cancel();
+      _userDocSub = _firestore
+          .collection('users')
+          .doc(_user.uid)
+          .snapshots()
+          .listen((doc) {
+            if (doc.exists && mounted) {
+              final remoteName =
+                  (doc.data()?['fullName'] ?? '').toString().trim();
+              if (remoteName.isNotEmpty && remoteName != _userName) {
+                setState(() {
+                  _userName = remoteName;
+                });
+                if (ProfileScreen.userNameNotifier.value != remoteName) {
+                  ProfileScreen.userNameNotifier.value = remoteName;
+                }
+              }
+            }
+          });
     } catch (_) {}
   }
 
@@ -140,6 +177,11 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
           controller: _pageController,
           physics: const ClampingScrollPhysics(),
           onPageChanged: (index) {
+            if (index == 0 &&
+                ProfileScreen.userNameNotifier.value.isNotEmpty &&
+                _userName != ProfileScreen.userNameNotifier.value) {
+              setState(() => _userName = ProfileScreen.userNameNotifier.value);
+            }
             setState(() => _currentIndex = index);
           },
           children: [
@@ -301,6 +343,11 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
 
   void _onNavTab(int index) {
     if (index == _currentIndex) return;
+    if (index == 0 &&
+        ProfileScreen.userNameNotifier.value.isNotEmpty &&
+        _userName != ProfileScreen.userNameNotifier.value) {
+      setState(() => _userName = ProfileScreen.userNameNotifier.value);
+    }
     setState(() => _currentIndex = index);
     _pageController.animateToPage(
       index,
