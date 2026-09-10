@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/notification_service.dart';
+import '../services/user_stats_service.dart';
 import '../widgets/app_bottom_nav.dart';
 import 'student_home_screen.dart';
 import 'qr_scanner_screen.dart';
@@ -12,7 +13,19 @@ import '../widgets/notification_bell_button.dart';
 import '../widgets/reservation_expired_dialog.dart';
 
 class SessionScreen extends StatefulWidget {
-  const SessionScreen({super.key});
+  final Map<String, dynamic>? initialBooking;
+  final String? initialStatus;
+
+  final bool isTab;
+  final ValueChanged<int>? onTabSelected;
+
+  const SessionScreen({
+    super.key,
+    this.initialBooking,
+    this.initialStatus,
+    this.isTab = false,
+    this.onTabSelected,
+  });
 
   static bool isActive = false;
 
@@ -49,6 +62,39 @@ class _SessionScreenState extends State<SessionScreen>
       parent: _pulseController,
       curve: Curves.easeInOut,
     );
+
+    // Fast initial load from passed props or cache
+    final initial = widget.initialBooking ?? ProfileScreen.cachedBooking;
+    final initialStatus = widget.initialStatus ?? ProfileScreen.cachedStatus;
+    if (initial != null && (initialStatus == 'booked' || initialStatus == 'pending')) {
+      _activeBooking = Map<String, dynamic>.from(initial);
+      _bookingStatus = initialStatus;
+      _isLoading = false;
+      if (initialStatus == 'booked') {
+        Timestamp? bookedAt = _activeBooking!['bookedAt'] as Timestamp?;
+        DateTime sessionEnd = bookedAt != null
+            ? bookedAt.toDate().add(const Duration(minutes: 2))
+            : DateTime.now().add(const Duration(minutes: 2));
+        _startTimerForBooked(
+          _activeBooking!['seatId']?.toString() ?? _activeBooking!['docId']?.toString() ?? '',
+          sessionEnd,
+          _activeBooking!['seatNumber']?.toString() ?? '?',
+          _activeBooking!['buildingName']?.toString() ?? '',
+          _activeBooking!['roomName']?.toString() ?? '',
+        );
+      } else if (initialStatus == 'pending') {
+        Timestamp? pendingAt = _activeBooking!['pendingAt'] as Timestamp?;
+        DateTime expiresAt = pendingAt != null
+            ? pendingAt.toDate().add(const Duration(minutes: 10))
+            : DateTime.now().add(const Duration(minutes: 10));
+        _startTimerForPending(
+          _activeBooking!['seatId']?.toString() ?? _activeBooking!['docId']?.toString() ?? '',
+          _activeBooking!['seatNumber']?.toString() ?? '?',
+          expiresAt,
+        );
+      }
+    }
+
     _listenActiveBooking();
   }
 
@@ -91,6 +137,8 @@ class _SessionScreenState extends State<SessionScreen>
                       _activeBooking = null;
                       _bookingStatus = '';
                       _isLoading = false;
+                      ProfileScreen.cachedBooking = null;
+                      ProfileScreen.cachedStatus = '';
                     });
                     _timer?.cancel();
                   }
@@ -104,6 +152,12 @@ class _SessionScreenState extends State<SessionScreen>
 
     _timer?.cancel();
 
+    String seatNumber = data['seatNumber']?.toString() ?? '?';
+    String roomName = data['roomName'] ?? _activeBooking?['roomName'] ?? '';
+    String floorName = data['floorName'] ?? _activeBooking?['floorName'] ?? '';
+    String buildingName = data['buildingName'] ?? _activeBooking?['buildingName'] ?? '';
+    String zone = data['zone'] ?? _activeBooking?['zone'] ?? 'Quiet Zone';
+
     if (status == 'pending') {
       Timestamp? pendingAt = data['pendingAt'] as Timestamp?;
       if (pendingAt != null) {
@@ -112,7 +166,7 @@ class _SessionScreenState extends State<SessionScreen>
         );
         _startTimerForPending(
           doc.id,
-          data['seatNumber']?.toString() ?? '?',
+          seatNumber,
           expiresAt,
         );
       }
@@ -120,64 +174,67 @@ class _SessionScreenState extends State<SessionScreen>
         _activeBooking = {
           'docId': doc.id,
           'seatId': doc.id,
-          'seatNumber': data['seatNumber'] ?? '?',
-          'roomName': '',
-          'floorName': '',
-          'buildingName': '',
+          'seatNumber': seatNumber,
+          'roomName': roomName,
+          'floorName': floorName,
+          'buildingName': buildingName,
           'status': 'pending',
-          'zone': data['zone'] ?? 'Quiet Zone',
+          'zone': zone,
+          'pendingAt': pendingAt,
         };
         _bookingStatus = 'pending';
         _isLoading = false;
+        ProfileScreen.cachedBooking = _activeBooking;
+        ProfileScreen.cachedStatus = 'pending';
       });
     } else if (status == 'booked') {
       Timestamp? bookedAt = data['bookedAt'] as Timestamp?;
       DateTime sessionEnd;
       if (bookedAt != null) {
-        sessionEnd = bookedAt.toDate().add(const Duration(minutes: 5));
+        sessionEnd = bookedAt.toDate().add(const Duration(minutes: 2));
       } else {
-        sessionEnd = DateTime.now().add(const Duration(minutes: 5));
+        sessionEnd = DateTime.now().add(const Duration(minutes: 2));
       }
       _startTimerForBooked(
         doc.id,
         sessionEnd,
-        data['seatNumber'] ?? '?',
-        '',
-        '',
+        seatNumber,
+        buildingName,
+        roomName,
       );
       setState(() {
         _activeBooking = {
           'docId': doc.id,
           'seatId': doc.id,
-          'seatNumber': data['seatNumber'] ?? '?',
-          'roomName': '',
-          'floorName': '',
-          'buildingName': '',
+          'seatNumber': seatNumber,
+          'roomName': roomName,
+          'floorName': floorName,
+          'buildingName': buildingName,
           'status': 'booked',
-          'zone': data['zone'] ?? 'Quiet Zone',
+          'zone': zone,
+          'bookedAt': bookedAt,
         };
         _bookingStatus = 'booked';
         _isLoading = false;
+        ProfileScreen.cachedBooking = _activeBooking;
+        ProfileScreen.cachedStatus = 'booked';
       });
     }
 
     String roomId = data['roomId'] ?? '';
-    String roomName = '';
-    String floorName = '';
-    String buildingName = '';
-    if (roomId.isNotEmpty) {
+    if (roomId.isNotEmpty && (roomName.isEmpty || buildingName.isEmpty)) {
       DocumentSnapshot roomDoc =
           await _firestore.collection('rooms').doc(roomId).get();
       var roomData = roomDoc.data() as Map<String, dynamic>?;
-      roomName = roomData?['name'] ?? 'Room';
+      if (roomName.isEmpty) roomName = roomData?['name'] ?? 'Room';
       String floorId = roomData?['floorId'] ?? '';
       if (floorId.isNotEmpty) {
         DocumentSnapshot floorDoc =
             await _firestore.collection('floors').doc(floorId).get();
         var floorData = floorDoc.data() as Map<String, dynamic>?;
-        floorName = floorData?['name'] ?? 'Floor';
+        if (floorName.isEmpty) floorName = floorData?['name'] ?? 'Floor';
         String buildingId = floorData?['buildingId'] ?? '';
-        if (buildingId.isNotEmpty) {
+        if (buildingId.isNotEmpty && buildingName.isEmpty) {
           DocumentSnapshot buildingDoc =
               await _firestore.collection('buildings').doc(buildingId).get();
           var buildingData = buildingDoc.data() as Map<String, dynamic>?;
@@ -191,6 +248,7 @@ class _SessionScreenState extends State<SessionScreen>
             _activeBooking!['roomName'] = roomName;
             _activeBooking!['floorName'] = floorName;
             _activeBooking!['buildingName'] = buildingName;
+            ProfileScreen.cachedBooking = _activeBooking;
           }
         });
       }
@@ -246,6 +304,19 @@ class _SessionScreenState extends State<SessionScreen>
   Future<void> _releaseSeat(String seatId) async {
     _timer?.cancel();
     try {
+      // Record completed session stats if active
+      if (_user != null && _bookingStatus == 'booked') {
+        DateTime? bookedAt;
+        if (_activeBooking?['bookedAt'] is Timestamp) {
+          bookedAt = (_activeBooking!['bookedAt'] as Timestamp).toDate();
+        }
+        UserStatsService.recordCompletedSession(
+          userId: _user.uid,
+          seatId: seatId,
+          bookedAt: bookedAt,
+        );
+      }
+
       await _firestore.collection('seats').doc(seatId).update({
         'status': 'available',
         'bookedBy': FieldValue.delete(),
@@ -261,6 +332,8 @@ class _SessionScreenState extends State<SessionScreen>
         setState(() {
           _activeBooking = null;
           _bookingStatus = '';
+          ProfileScreen.cachedBooking = null;
+          ProfileScreen.cachedStatus = '';
         });
         showDialog(
           context: context,
@@ -324,7 +397,18 @@ class _SessionScreenState extends State<SessionScreen>
                         width: double.infinity,
                         height: 54,
                         child: ElevatedButton(
-                          onPressed: () => Navigator.pop(ctx),
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            if (mounted) {
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                AppPageRoute(
+                                  builder: (_) => const StudentHomeScreen(),
+                                ),
+                                (route) => false,
+                              );
+                            }
+                          },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF2ECA7F),
                             shape: RoundedRectangleBorder(
@@ -368,6 +452,18 @@ class _SessionScreenState extends State<SessionScreen>
   }
 
   Future<void> _autoReleaseSeat(String seatId) async {
+    if (_user != null && _bookingStatus == 'booked') {
+      DateTime? bookedAt;
+      if (_activeBooking?['bookedAt'] is Timestamp) {
+        bookedAt = (_activeBooking!['bookedAt'] as Timestamp).toDate();
+      }
+      UserStatsService.recordCompletedSession(
+        userId: _user.uid,
+        seatId: seatId,
+        bookedAt: bookedAt,
+        fallbackMinutes: 10,
+      );
+    }
     await _firestore.collection('seats').doc(seatId).update({
       'status': 'available',
       'bookedBy': FieldValue.delete(),
@@ -384,6 +480,8 @@ class _SessionScreenState extends State<SessionScreen>
       setState(() {
         _activeBooking = null;
         _bookingStatus = '';
+        ProfileScreen.cachedBooking = null;
+        ProfileScreen.cachedStatus = '';
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -408,6 +506,8 @@ class _SessionScreenState extends State<SessionScreen>
       setState(() {
         _activeBooking = null;
         _bookingStatus = '';
+        ProfileScreen.cachedBooking = null;
+        ProfileScreen.cachedStatus = '';
       });
       ReservationExpiredDialog.show(context);
     }
@@ -421,102 +521,106 @@ class _SessionScreenState extends State<SessionScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: true,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 8,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 28.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 68,
-                height: 68,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFFEBEE),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  isRelease ? Icons.output_rounded : Icons.cancel_outlined,
-                  color: Colors.red.shade600,
-                  size: 34,
-                ),
+      builder:
+          (ctx) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            backgroundColor: Colors.white,
+            elevation: 8,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24.0,
+                vertical: 28.0,
               ),
-              const SizedBox(height: 20),
-              Text(
-                isRelease ? 'Release Seat?' : 'Cancel Reservation?',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                isRelease
-                    ? 'Are you sure you want to end your session? Seat $seatNum will be released and made available for other students.'
-                    : 'Are you sure you want to cancel your reservation for Seat $seatNum? The seat will be released immediately.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade600,
-                  height: 1.4,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(ctx).pop(false),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: BorderSide(color: Colors.grey.shade300),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      child: Text(
-                        'Keep Seat',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade700,
-                        ),
-                      ),
+                  Container(
+                    width: 68,
+                    height: 68,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFFFEBEE),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isRelease ? Icons.output_rounded : Icons.cancel_outlined,
+                      color: Colors.red.shade600,
+                      size: 34,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.of(ctx).pop(true),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red.shade600,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      child: Text(
-                        isRelease ? 'Release' : 'Yes, Cancel',
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
+                  const SizedBox(height: 20),
+                  Text(
+                    isRelease ? 'Release Seat?' : 'Cancel Reservation?',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
                     ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    isRelease
+                        ? 'Are you sure you want to end your session? Seat $seatNum will be released and made available for other students.'
+                        : 'Are you sure you want to cancel your reservation for Seat $seatNum? The seat will be released immediately.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                      height: 1.4,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.of(ctx).pop(false),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            side: BorderSide(color: Colors.grey.shade300),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: Text(
+                            'Keep Seat',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.of(ctx).pop(true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.shade600,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: Text(
+                            isRelease ? 'Release' : 'Yes, Cancel',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
     );
 
     if (confirmed == true) {
@@ -539,6 +643,10 @@ class _SessionScreenState extends State<SessionScreen>
   }
 
   void _onNavTab(int index) {
+    if (widget.isTab && widget.onTabSelected != null) {
+      widget.onTabSelected!(index);
+      return;
+    }
     if (index == 2) return;
     Widget screen;
     switch (index) {
@@ -563,6 +671,66 @@ class _SessionScreenState extends State<SessionScreen>
 
   @override
   Widget build(BuildContext context) {
+    final scaffold = Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top Bar
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _activeBooking == null
+                            ? 'My session'
+                            : (_bookingStatus == 'pending'
+                                ? 'Pending Confirmation'
+                                : "You're all set"),
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _activeBooking == null
+                            ? 'No active session'
+                            : (_bookingStatus == 'pending'
+                                ? 'Please scan the QR on the seat'
+                                : 'Your session has started successfully'),
+                        style: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const NotificationBellButton(),
+                ],
+              ),
+            ),
+            Expanded(child: _buildBody()),
+          ],
+        ),
+      ),
+      bottomNavigationBar: widget.isTab
+          ? null
+          : AppBottomNav(
+              currentIndex: 2,
+              onTabSelected: _onNavTab,
+            ),
+    );
+
+    if (widget.isTab) {
+      return scaffold;
+    }
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -572,59 +740,14 @@ class _SessionScreenState extends State<SessionScreen>
         } else {
           Navigator.pushAndRemoveUntil(
             context,
-            AppPageRoute(
-              builder: (_) => const StudentHomeScreen(),
-            ),
+            AppPageRoute(builder: (_) => const StudentHomeScreen()),
             (route) => false,
           );
         }
       },
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        body: SafeArea(
-          child: Column(
-            children: [
-              // Top Bar
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'My session',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                        Text(
-                          'Your seat is now active',
-                          style: TextStyle(
-                            color: Colors.grey.shade500,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  const NotificationBellButton(),
-                ],
-              ),
-            ),
-            Expanded(child: _buildBody()),
-          ],
-        ),
-      ),
-      bottomNavigationBar: AppBottomNav(
-        currentIndex: 2,
-        onTabSelected: _onNavTab,
-      ),
-    ),
-  );
-}
+      child: scaffold,
+    );
+  }
 
   Widget _buildBody() {
     if (_isLoading) {
@@ -657,31 +780,32 @@ class _SessionScreenState extends State<SessionScreen>
     bool isPending = _bookingStatus == 'pending';
     bool isBooked = _bookingStatus == 'booked';
 
+    // Yellow mix orange for pending state, Green for active state
+    final Color primaryThemeColor = isPending
+        ? const Color(0xFFF59E0B) // Amber / Yellow-orange
+        : const Color(0xFF2ECA7F); // Fresh Theme Green
+
+    final Color darkTextColor = isPending
+        ? const Color(0xFF9A3412) // Deep warm amber-orange
+        : const Color(0xFF0F5132); // Deep forest green
+
+    final Color softBgColor = isPending
+        ? const Color(0xFFFFFBEB) // Soft yellow-orange tint
+        : const Color(0xFFF2FAF5); // Soft green tint
+
+    final Color badgeBgColor = isPending
+        ? const Color(0xFFFEF3C7) // Light yellow-orange badge bg
+        : const Color(0xFFE8F7F0); // Light green badge bg
+
+    final Color accentColor = isPending
+        ? const Color(0xFFD97706) // Rich yellow-orange for text/icons
+        : const Color(0xFF2ECA7F);
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
       child: Column(
         children: [
-          // Status Header (Top static graphic removed)
-          Column(
-            children: [
-              const SizedBox(height: 8),
-              Text(
-                isPending ? "Pending Confirmation" : "You're all set",
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                isPending
-                    ? "Please scan the QR on the seat"
-                    : "Your session has started successfully",
-                style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 8),
 
           // ========== Animated Circular Timer & Creative Visuals ==========
           AnimatedBuilder(
@@ -699,7 +823,7 @@ class _SessionScreenState extends State<SessionScreen>
                       width: 230 + (24 * val),
                       height: 230 + (24 * val),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2ECA7F).withValues(
+                        color: primaryThemeColor.withValues(
                           alpha: 0.05 + (0.05 * val),
                         ),
                         shape: BoxShape.circle,
@@ -709,7 +833,7 @@ class _SessionScreenState extends State<SessionScreen>
                       width: 185 + (16 * val),
                       height: 185 + (16 * val),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2ECA7F).withValues(
+                        color: primaryThemeColor.withValues(
                           alpha: 0.08 + (0.08 * (1 - val)),
                         ),
                         shape: BoxShape.circle,
@@ -719,7 +843,7 @@ class _SessionScreenState extends State<SessionScreen>
                       width: 145,
                       height: 145,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2ECA7F).withValues(alpha: 0.04),
+                        color: primaryThemeColor.withValues(alpha: 0.04),
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -733,7 +857,7 @@ class _SessionScreenState extends State<SessionScreen>
                         angle: val * 0.3,
                         child: Icon(
                           Icons.star_border_rounded,
-                          color: const Color(0xFF2ECA7F).withValues(
+                          color: primaryThemeColor.withValues(
                             alpha: 0.4 + (0.5 * val),
                           ),
                           size: 26,
@@ -748,7 +872,7 @@ class _SessionScreenState extends State<SessionScreen>
                         scale: 0.85 + (0.3 * val),
                         child: Icon(
                           Icons.auto_awesome,
-                          color: const Color(0xFF2ECA7F).withValues(
+                          color: primaryThemeColor.withValues(
                             alpha: 0.45 + (0.45 * (1 - val)),
                           ),
                           size: 22,
@@ -761,7 +885,7 @@ class _SessionScreenState extends State<SessionScreen>
                       left: 6,
                       child: Icon(
                         Icons.radio_button_unchecked,
-                        color: const Color(0xFF2ECA7F).withValues(
+                        color: primaryThemeColor.withValues(
                           alpha: 0.35 + (0.35 * val),
                         ),
                         size: 16,
@@ -773,7 +897,7 @@ class _SessionScreenState extends State<SessionScreen>
                       right: 8,
                       child: Icon(
                         Icons.star_rounded,
-                        color: const Color(0xFF2ECA7F).withValues(
+                        color: primaryThemeColor.withValues(
                           alpha: 0.4 + (0.4 * val),
                         ),
                         size: 18,
@@ -787,7 +911,7 @@ class _SessionScreenState extends State<SessionScreen>
                         angle: -val * 0.25,
                         child: Icon(
                           Icons.star_border_rounded,
-                          color: const Color(0xFF2ECA7F).withValues(
+                          color: primaryThemeColor.withValues(
                             alpha: 0.35 + (0.45 * (1 - val)),
                           ),
                           size: 24,
@@ -800,7 +924,7 @@ class _SessionScreenState extends State<SessionScreen>
                       right: 38,
                       child: Icon(
                         Icons.radio_button_unchecked,
-                        color: const Color(0xFF2ECA7F).withValues(
+                        color: primaryThemeColor.withValues(
                           alpha: 0.3 + (0.4 * val),
                         ),
                         size: 14,
@@ -814,12 +938,14 @@ class _SessionScreenState extends State<SessionScreen>
                       child: CircularProgressIndicator(
                         value:
                             _remainingSeconds > 0
-                                ? _remainingSeconds /
-                                    (isPending ? (10 * 60) : (5 * 60))
+                                ? _remainingSeconds / (10 * 60)
                                 : 0,
                         strokeWidth: 11,
-                        backgroundColor: const Color(0xFFEBEFEF),
-                        color: const Color(0xFF2ECA7F), // Green progress
+                        backgroundColor:
+                            isPending
+                                ? const Color(0xFFFEF3C7)
+                                : const Color(0xFFEBEFEF),
+                        color: primaryThemeColor,
                         strokeCap: StrokeCap.round,
                       ),
                     ),
@@ -835,9 +961,7 @@ class _SessionScreenState extends State<SessionScreen>
                             vertical: 3,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF2ECA7F).withValues(
-                              alpha: 0.12,
-                            ),
+                            color: primaryThemeColor.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
@@ -847,11 +971,11 @@ class _SessionScreenState extends State<SessionScreen>
                                 width: 6,
                                 height: 6,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF2ECA7F),
+                                  color: primaryThemeColor,
                                   shape: BoxShape.circle,
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFF2ECA7F).withValues(
+                                      color: primaryThemeColor.withValues(
                                         alpha: 0.4 + (0.5 * val),
                                       ),
                                       blurRadius: 3 + (3 * val),
@@ -863,11 +987,11 @@ class _SessionScreenState extends State<SessionScreen>
                               const SizedBox(width: 6),
                               Text(
                                 isPending ? 'TIME REMAINING' : 'SESSION ACTIVE',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 1.1,
-                                  color: Color(0xFF0F5132),
+                                  color: darkTextColor,
                                 ),
                               ),
                             ],
@@ -876,10 +1000,10 @@ class _SessionScreenState extends State<SessionScreen>
                         const SizedBox(height: 8),
                         Text(
                           _formatTime(_remainingSeconds),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 48,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F5132), // Dark green text
+                            color: darkTextColor,
                             height: 1.0,
                           ),
                         ),
@@ -899,15 +1023,15 @@ class _SessionScreenState extends State<SessionScreen>
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFE8F7F0), // Light green background
+                            color: badgeBgColor,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            isPending ? '10 mins' : '5 mins',
-                            style: const TextStyle(
+                            '10 mins',
+                            style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF2ECA7F),
+                              color: accentColor,
                             ),
                           ),
                         ),
@@ -924,8 +1048,15 @@ class _SessionScreenState extends State<SessionScreen>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFFF2FAF5), // Very light green tint
+              color: softBgColor,
               borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color:
+                    isPending
+                        ? const Color(0xFFFDE68A)
+                        : const Color(0xFFD1FAE5),
+                width: 1.2,
+              ),
             ),
             child: Row(
               children: [
@@ -936,9 +1067,9 @@ class _SessionScreenState extends State<SessionScreen>
                     color: Colors.white,
                     borderRadius: BorderRadius.all(Radius.circular(16)),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.event_seat,
-                    color: Color(0xFF2ECA7F),
+                    color: accentColor,
                     size: 36,
                   ),
                 ),
@@ -962,10 +1093,10 @@ class _SessionScreenState extends State<SessionScreen>
                           const SizedBox(height: 2),
                           Text(
                             _activeBooking!['seatNumber'] ?? 'A03',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF2ECA7F),
+                              color: accentColor,
                             ),
                           ),
                         ],
@@ -1018,13 +1149,11 @@ class _SessionScreenState extends State<SessionScreen>
                     onPressed: () {
                       Navigator.push(
                         context,
-                        AppPageRoute(
-                          builder: (_) => const QrScannerScreen(),
-                        ),
+                        AppPageRoute(builder: (_) => const QrScannerScreen()),
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF4C6FFF),
+                      backgroundColor: const Color(0xFFF59E0B), // Warm yellow-mix-orange
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       elevation: 0,
                       shape: RoundedRectangleBorder(

@@ -10,9 +10,16 @@ import 'session_screen.dart';
 import 'notification_screen.dart';
 import '../utils/app_page_route.dart';
 import '../widgets/notification_bell_button.dart';
+import '../services/auth_persistence_service.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final bool isTab;
+  final ValueChanged<int>? onTabSelected;
+
+  const ProfileScreen({super.key, this.isTab = false, this.onTabSelected});
+
+  static Map<String, dynamic>? cachedBooking;
+  static String cachedStatus = '';
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -29,9 +36,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? _activeBooking;
   String _bookingStatus = '';
 
-  int _sessionsCompleted = 24;
-  int _hoursStudied = 56;
-  int _differentSeatsUsed = 18;
+  int _sessionsCompleted = 0;
+  num _hoursStudiedNum = 0;
+  int _totalMinutesStudied = 0;
+  int _differentSeatsUsed = 0;
+
+  String get _hoursStudiedFormatted {
+    if (_totalMinutesStudied <= 0 && _hoursStudiedNum <= 0) return '0';
+    num val =
+        _hoursStudiedNum > 0 ? _hoursStudiedNum : (_totalMinutesStudied / 60.0);
+    if (val == val.roundToDouble()) {
+      return val.toInt().toString();
+    }
+    return val.toStringAsFixed(1);
+  }
 
   final TextEditingController _nameCtrl = TextEditingController();
   final TextEditingController _emailCtrl = TextEditingController();
@@ -40,11 +58,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   StreamSubscription<QuerySnapshot>? _bookedSub;
   StreamSubscription<QuerySnapshot>? _pendingSub;
+  StreamSubscription<DocumentSnapshot>? _userDocSub;
   Timer? _countdownTimer;
 
   @override
   void initState() {
     super.initState();
+    _activeBooking = ProfileScreen.cachedBooking;
+    _bookingStatus = ProfileScreen.cachedStatus;
     _loadUserData();
     _listenActiveBooking();
     _startCountdownTimer();
@@ -57,6 +78,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _phoneCtrl.dispose();
     _bookedSub?.cancel();
     _pendingSub?.cancel();
+    _userDocSub?.cancel();
     _countdownTimer?.cancel();
     super.dispose();
   }
@@ -72,7 +94,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadUserData() async {
     if (_user == null) return;
     try {
-      // First try cache
+      // First try local cache for instant zero-latency render
       try {
         DocumentSnapshot cacheDoc = await _firestore
             .collection('users')
@@ -83,12 +105,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       } catch (_) {}
 
-      // Then fetch server
-      DocumentSnapshot doc =
-          await _firestore.collection('users').doc(_user.uid).get();
-      if (doc.exists && mounted) {
-        _applyUserData(doc.data() as Map<String, dynamic>);
-      }
+      // Real-time listener for user profile and statistics updates
+      _userDocSub?.cancel();
+      _userDocSub = _firestore
+          .collection('users')
+          .doc(_user.uid)
+          .snapshots()
+          .listen((doc) {
+            if (doc.exists && mounted) {
+              _applyUserData(doc.data() as Map<String, dynamic>);
+            }
+          });
     } catch (_) {}
   }
 
@@ -98,14 +125,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _email = data['email'] ?? _user?.email ?? '';
       _phone = data['phone'] ?? '';
       _userType = data['userType'] ?? 'Student';
-      if (data['sessionsCompleted'] != null) {
-        _sessionsCompleted = (data['sessionsCompleted'] as num).toInt();
-      }
+      _sessionsCompleted = (data['sessionsCompleted'] as num?)?.toInt() ?? 0;
+      _totalMinutesStudied =
+          (data['totalMinutesStudied'] as num?)?.toInt() ?? 0;
       if (data['hoursStudied'] != null) {
-        _hoursStudied = (data['hoursStudied'] as num).toInt();
+        _hoursStudiedNum = data['hoursStudied'] as num;
+      } else if (_totalMinutesStudied > 0) {
+        _hoursStudiedNum = _totalMinutesStudied / 60.0;
+      } else {
+        _hoursStudiedNum = 0;
       }
       if (data['differentSeatsUsed'] != null) {
         _differentSeatsUsed = (data['differentSeatsUsed'] as num).toInt();
+      } else if (data['usedSeats'] != null) {
+        _differentSeatsUsed = (data['usedSeats'] as List).length;
+      } else {
+        _differentSeatsUsed = 0;
       }
     });
     _nameCtrl.text = _fullName;
@@ -115,6 +150,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _listenActiveBooking() {
     if (_user == null) return;
+
+    // Fast local cache lookup for instant load on launch
+    if (_activeBooking == null) {
+      _firestore
+          .collection('seats')
+          .where('bookedBy', isEqualTo: _user.uid)
+          .get(const GetOptions(source: Source.cache))
+          .then((snap) {
+            if (snap.docs.isNotEmpty && mounted && _activeBooking == null) {
+              _onBookingFound(snap.docs.first, 'booked');
+            } else if (_activeBooking == null) {
+              _firestore
+                  .collection('seats')
+                  .where('pendingBy', isEqualTo: _user.uid)
+                  .get(const GetOptions(source: Source.cache))
+                  .then((pSnap) {
+                    if (pSnap.docs.isNotEmpty &&
+                        mounted &&
+                        _activeBooking == null) {
+                      _onBookingFound(pSnap.docs.first, 'pending');
+                    }
+                  })
+                  .catchError((_) {});
+            }
+          })
+          .catchError((_) {});
+    }
 
     _bookedSub?.cancel();
     _bookedSub = _firestore
@@ -131,13 +193,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 .collection('seats')
                 .where('pendingBy', isEqualTo: _user.uid)
                 .snapshots()
-                .listen((snapshot) {
-                  if (snapshot.docs.isNotEmpty) {
-                    _onBookingFound(snapshot.docs.first, 'pending');
+                .listen((pSnap) {
+                  if (pSnap.docs.isNotEmpty) {
+                    _onBookingFound(pSnap.docs.first, 'pending');
                   } else if (mounted) {
                     setState(() {
                       _activeBooking = null;
                       _bookingStatus = '';
+                      ProfileScreen.cachedBooking = null;
+                      ProfileScreen.cachedStatus = '';
                     });
                   }
                 });
@@ -147,39 +211,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _onBookingFound(QueryDocumentSnapshot doc, String status) async {
     var data = doc.data() as Map<String, dynamic>;
-    String roomId = data['roomId'] ?? '';
-    String roomName = '';
-    String floorName = '';
-    String buildingName = '';
 
-    if (roomId.isNotEmpty) {
-      DocumentSnapshot roomDoc =
-          await _firestore.collection('rooms').doc(roomId).get();
-      var roomData = roomDoc.data() as Map<String, dynamic>?;
-      roomName = roomData?['name'] ?? 'Room';
-      String floorId = roomData?['floorId'] ?? '';
-      if (floorId.isNotEmpty) {
-        DocumentSnapshot floorDoc =
-            await _firestore.collection('floors').doc(floorId).get();
-        var floorData = floorDoc.data() as Map<String, dynamic>?;
-        floorName = floorData?['name'] ?? 'Floor';
-        String buildingId = floorData?['buildingId'] ?? '';
-        if (buildingId.isNotEmpty) {
-          DocumentSnapshot buildingDoc =
-              await _firestore.collection('buildings').doc(buildingId).get();
-          var buildingData = buildingDoc.data() as Map<String, dynamic>?;
-          buildingName = buildingData?['name'] ?? 'Building';
-        }
-      }
-    }
+    String seatNumber = data['seatNumber']?.toString() ?? '?';
+    String roomName = data['roomName']?.toString() ?? '';
+    String floorName = data['floorName']?.toString() ?? '';
+    String buildingName = data['buildingName']?.toString() ?? '';
 
+    // 1. Immediately update UI state so current session card appears without delay!
     if (mounted) {
       setState(() {
         _activeBooking = {
           'docId': doc.id,
           'seatId': doc.id,
-          'seatNumber': data['seatNumber'] ?? '?',
-          'roomName': roomName,
+          'seatNumber': seatNumber,
+          'roomName': roomName.isNotEmpty ? roomName : 'Room',
           'floorName': floorName,
           'buildingName': buildingName,
           'status': status,
@@ -187,18 +232,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
           'pendingAt': data['pendingAt'],
         };
         _bookingStatus = status;
+        ProfileScreen.cachedBooking = _activeBooking;
+        ProfileScreen.cachedStatus = status;
       });
+    }
+
+    // 2. Fetch room/floor/building in background if not present on seat doc
+    String roomId = data['roomId'] ?? '';
+    if (roomId.isNotEmpty && (roomName.isEmpty || buildingName.isEmpty)) {
+      try {
+        DocumentSnapshot roomDoc =
+            await _firestore.collection('rooms').doc(roomId).get();
+        var roomData = roomDoc.data() as Map<String, dynamic>?;
+        roomName = roomData?['name'] ?? roomName;
+        String floorId = roomData?['floorId'] ?? '';
+        if (floorId.isNotEmpty) {
+          DocumentSnapshot floorDoc =
+              await _firestore.collection('floors').doc(floorId).get();
+          var floorData = floorDoc.data() as Map<String, dynamic>?;
+          floorName = floorData?['name'] ?? floorName;
+          String buildingId = floorData?['buildingId'] ?? '';
+          if (buildingId.isNotEmpty) {
+            DocumentSnapshot buildingDoc =
+                await _firestore.collection('buildings').doc(buildingId).get();
+            var buildingData = buildingDoc.data() as Map<String, dynamic>?;
+            buildingName = buildingData?['name'] ?? buildingName;
+          }
+        }
+
+        if (mounted &&
+            _activeBooking != null &&
+            _activeBooking!['docId'] == doc.id) {
+          setState(() {
+            _activeBooking!['roomName'] =
+                roomName.isNotEmpty ? roomName : 'Room';
+            _activeBooking!['floorName'] = floorName;
+            _activeBooking!['buildingName'] = buildingName;
+            ProfileScreen.cachedBooking = _activeBooking;
+          });
+        }
+      } catch (_) {}
     }
   }
 
   String _getRemainingTime() {
-    if (_activeBooking == null) return '34:28';
+    if (_activeBooking == null) return '00:00';
     Timestamp? ts =
-        (_activeBooking!['bookedAt'] ?? _activeBooking!['pendingAt']) as Timestamp?;
-    if (ts == null) return '34:28';
-    final duration = _bookingStatus == 'pending'
-        ? const Duration(minutes: 10)
-        : const Duration(minutes: 60);
+        (_activeBooking!['bookedAt'] ?? _activeBooking!['pendingAt'])
+            as Timestamp?;
+    if (ts == null) return '00:00';
+    final bool isBooked =
+        _activeBooking!['status'] == 'booked' ||
+        _activeBooking!['bookedAt'] != null;
+    final duration =
+        isBooked ? const Duration(minutes: 2) : const Duration(minutes: 10);
     final expiresAt = ts.toDate().add(duration);
     final diff = expiresAt.difference(DateTime.now());
     if (diff.isNegative) return '00:00';
@@ -242,27 +329,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _logout() async {
     bool? confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'Logout',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: const Text('Are you sure you want to logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+      builder:
+          (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Text(
+              'Logout',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            content: const Text('Are you sure you want to logout?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text(
+                  'Logout',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Logout', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
     );
     if (confirm != true) return;
+    await AuthPersistenceService.clear();
     await FirebaseAuth.instance.signOut();
     if (mounted) {
       Navigator.pushAndRemoveUntil(
@@ -274,6 +371,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _onNavTab(int index) {
+    if (widget.isTab && widget.onTabSelected != null) {
+      widget.onTabSelected!(index);
+      return;
+    }
     if (index == 3) return;
     Widget screen;
     switch (index) {
@@ -355,11 +456,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       controller: _nameCtrl,
                       decoration: InputDecoration(
                         labelText: 'Full Name',
-                        prefixIcon: const Icon(Icons.person_outline_rounded, color: Color(0xFF3B82F6)),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                        prefixIcon: const Icon(
+                          Icons.person_outline_rounded,
+                          color: Color(0xFF3B82F6),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF3B82F6),
+                            width: 2,
+                          ),
                         ),
                       ),
                     ),
@@ -369,11 +478,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
                         labelText: 'Email Address',
-                        prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF3B82F6)),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                        prefixIcon: const Icon(
+                          Icons.email_outlined,
+                          color: Color(0xFF3B82F6),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF3B82F6),
+                            width: 2,
+                          ),
                         ),
                       ),
                     ),
@@ -383,11 +500,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       keyboardType: TextInputType.phone,
                       decoration: InputDecoration(
                         labelText: 'Phone Number',
-                        prefixIcon: const Icon(Icons.phone_outlined, color: Color(0xFF3B82F6)),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                        prefixIcon: const Icon(
+                          Icons.phone_outlined,
+                          color: Color(0xFF3B82F6),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF3B82F6),
+                            width: 2,
+                          ),
                         ),
                       ),
                     ),
@@ -396,15 +521,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       width: double.infinity,
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: _isSaving
-                            ? null
-                            : () async {
-                                setModalState(() => _isSaving = true);
-                                await _saveProfile();
-                                if (sheetContext.mounted) {
-                                  Navigator.pop(sheetContext);
-                                }
-                              },
+                        onPressed:
+                            _isSaving
+                                ? null
+                                : () async {
+                                  setModalState(() => _isSaving = true);
+                                  await _saveProfile();
+                                  if (sheetContext.mounted) {
+                                    Navigator.pop(sheetContext);
+                                  }
+                                },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF3B82F6),
                           foregroundColor: Colors.white,
@@ -413,22 +539,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           elevation: 0,
                         ),
-                        child: _isSaving
-                            ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2.5,
+                        child:
+                            _isSaving
+                                ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2.5,
+                                  ),
+                                )
+                                : const Text(
+                                  'Save Changes',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              )
-                            : const Text(
-                                'Save Changes',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
                       ),
                     ),
                   ],
@@ -444,71 +571,177 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _showHelpAndSupportDialog() {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Row(
-          children: [
-            Icon(Icons.help_outline_rounded, color: Color(0xFF3B82F6)),
-            SizedBox(width: 10),
-            Text('Help & Support', style: TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('For any inquiries or technical assistance:'),
-            SizedBox(height: 12),
-            Text('Email: support@easysit.app', style: TextStyle(fontWeight: FontWeight.w600)),
-            SizedBox(height: 4),
-            Text('Phone: 0713393669', style: TextStyle(fontWeight: FontWeight.w600)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close', style: TextStyle(color: Color(0xFF3B82F6))),
+      builder:
+          (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.help_outline_rounded, color: Color(0xFF3B82F6)),
+                SizedBox(width: 10),
+                Text(
+                  'Help & Support',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('For any inquiries or technical assistance:'),
+                SizedBox(height: 12),
+                Text(
+                  'Email: support@easysit.app',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Phone: 0713393669',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text(
+                  'Close',
+                  style: TextStyle(color: Color(0xFF3B82F6)),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
   void _showAboutDialog() {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Row(
-          children: [
-            Icon(Icons.info_outline_rounded, color: Color(0xFF3B82F6)),
-            SizedBox(width: 10),
-            Text('About EasySit', style: TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('EasySit is a smart library seat booking system.'),
-            SizedBox(height: 12),
-            Text('Version: 1.0.0', style: TextStyle(fontWeight: FontWeight.w600)),
-            SizedBox(height: 4),
-            Text('Developer: EasySit Team', style: TextStyle(fontWeight: FontWeight.w600)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close', style: TextStyle(color: Color(0xFF3B82F6))),
+      builder:
+          (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.info_outline_rounded, color: Color(0xFF3B82F6)),
+                SizedBox(width: 10),
+                Text(
+                  'About EasySit',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('EasySit is a smart library seat booking system.'),
+                SizedBox(height: 12),
+                Text(
+                  'Version: 1.0.0',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Developer: EasySit Team',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text(
+                  'Close',
+                  style: TextStyle(color: Color(0xFF3B82F6)),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final scaffold = Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top Bar (Preserved as requested)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Profile',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  const NotificationBellButton(),
+                ],
+              ),
+            ),
+
+            // Middle Section (Styled to match design)
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildUserInfoCard(),
+                    if (_activeBooking != null &&
+                        (_bookingStatus == 'booked' ||
+                            _bookingStatus == 'pending')) ...[
+                      const SizedBox(height: 16),
+                      _buildCurrentSession(),
+                    ],
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Your Statistics',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildStats(),
+                    const SizedBox(height: 18),
+                    _buildSettingsCard(),
+                    const SizedBox(height: 18),
+                    _buildLogoutButton(),
+                    const SizedBox(
+                      height: 100,
+                    ), // Space for floating bottom nav
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar:
+          widget.isTab
+              ? null
+              : AppBottomNav(currentIndex: 3, onTabSelected: _onNavTab),
+    );
+
+    if (widget.isTab) {
+      return scaffold;
+    }
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -523,69 +756,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           );
         }
       },
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        body: SafeArea(
-          child: Column(
-            children: [
-              // Top Bar (Preserved as requested)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Profile',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    const NotificationBellButton(),
-                  ],
-                ),
-              ),
-
-              // Middle Section (Styled to match design)
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildUserInfoCard(),
-                      const SizedBox(height: 16),
-                      _buildCurrentSession(),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'Your Statistics',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _buildStats(),
-                      const SizedBox(height: 18),
-                      _buildSettingsCard(),
-                      const SizedBox(height: 18),
-                      _buildLogoutButton(),
-                      const SizedBox(height: 100), // Space for floating bottom nav
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        // Bottom Navigation Bar (Preserved as requested)
-        bottomNavigationBar: AppBottomNav(
-          currentIndex: 3,
-          onTabSelected: _onNavTab,
-        ),
-      ),
+      child: scaffold,
     );
   }
 
@@ -616,23 +787,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Image.asset(
                 'assets/images/student_avatar.png',
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      _fullName.isNotEmpty ? _fullName[0].toUpperCase() : 'S',
-                      style: const TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                errorBuilder:
+                    (_, __, ___) => Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          _fullName.isNotEmpty
+                              ? _fullName[0].toUpperCase()
+                              : 'S',
+                          style: const TextStyle(
+                            fontSize: 30,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
               ),
             ),
           ),
@@ -663,7 +837,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 10),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE8EEFF),
                     borderRadius: BorderRadius.circular(20),
@@ -698,25 +875,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // 2. Current Session Card
   Widget _buildCurrentSession() {
-    final hasBooking = _activeBooking != null;
-    final seatNumber = hasBooking
-        ? (_activeBooking!['seatNumber']?.toString() ?? 'A03')
-        : 'A03';
-    final roomName = hasBooking
-        ? (_activeBooking!['roomName']?.toString() ?? 'Quiet Zone')
-        : 'Quiet Zone';
-    final location = hasBooking
-        ? [
-            _activeBooking!['buildingName']?.toString() ?? '',
-            _activeBooking!['roomName']?.toString() ?? '',
-            _activeBooking!['floorName']?.toString() ?? ''
-          ].where((s) => s.isNotEmpty).join(' • ')
-        : 'Admin • Library • Floor 6';
-    final isBooked = hasBooking ? _bookingStatus == 'booked' : true;
-    final statusText = hasBooking
-        ? (_bookingStatus == 'booked' ? 'Active' : 'Pending')
-        : 'Active';
-    final endsInText = hasBooking ? _getRemainingTime() : '34:28';
+    if (_activeBooking == null ||
+        (_bookingStatus != 'booked' && _bookingStatus != 'pending')) {
+      return const SizedBox.shrink();
+    }
+
+    final seatNumber = _activeBooking!['seatNumber']?.toString() ?? '?';
+    final roomName = _activeBooking!['roomName']?.toString() ?? 'Room';
+    final location = [
+      _activeBooking!['buildingName']?.toString() ?? '',
+      _activeBooking!['roomName']?.toString() ?? '',
+      _activeBooking!['floorName']?.toString() ?? '',
+    ].where((s) => s.isNotEmpty).join(' • ');
+
+    final isBooked = _bookingStatus == 'booked';
+    final statusText = isBooked ? 'Active' : 'Pending';
+    final endsInText = _getRemainingTime();
+
+    // Active state appears green; Pending state shows yellow mix orange
+    final primaryColor =
+        isBooked ? const Color(0xFF2ECA7F) : const Color(0xFFF59E0B);
+    final accentTextColor =
+        isBooked ? const Color(0xFF2ECA7F) : const Color(0xFFD97706);
+    final secondaryBgColor =
+        isBooked ? const Color(0xFFE8F8F0) : const Color(0xFFFEF3C7);
+    final borderColor =
+        isBooked ? const Color(0xFFD1FAE5) : const Color(0xFFFDE68A);
 
     return Container(
       width: double.infinity,
@@ -724,10 +908,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
+        border: Border.all(color: borderColor, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: primaryColor.withValues(alpha: 0.06),
             blurRadius: 14,
             offset: const Offset(0, 4),
           ),
@@ -783,14 +967,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 width: 58,
                 height: 58,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE8F8F0),
+                  color: secondaryBgColor,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Center(
+                child: Center(
                   child: Icon(
                     Icons.chair_rounded,
                     size: 32,
-                    color: Color(0xFF10B981),
+                    color: primaryColor,
                   ),
                 ),
               ),
@@ -801,10 +985,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     Text(
                       seatNumber,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF10B981),
+                        color: accentTextColor,
                         height: 1.1,
                       ),
                     ),
@@ -819,16 +1003,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      location,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF94A3B8),
+                    if (location.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        location,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF94A3B8),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -836,11 +1022,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
-                      color: isBooked
-                          ? const Color(0xFFE8F5E9)
-                          : const Color(0xFFFEF3C7),
+                      color: secondaryBgColor,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -850,9 +1037,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           width: 6,
                           height: 6,
                           decoration: BoxDecoration(
-                            color: isBooked
-                                ? const Color(0xFF10B981)
-                                : const Color(0xFFD97706),
+                            color: accentTextColor,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -862,9 +1047,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: isBooked
-                                ? const Color(0xFF10B981)
-                                : const Color(0xFFD97706),
+                            color: accentTextColor,
                           ),
                         ),
                       ],
@@ -960,11 +1143,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
           ),
-          Container(
-            width: 1,
-            height: 60,
-            color: const Color(0xFFF1F5F9),
-          ),
+          Container(width: 1, height: 60, color: const Color(0xFFF1F5F9)),
           // Stat 2: Hours Studied
           Expanded(
             child: Column(
@@ -986,7 +1165,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '$_hoursStudied',
+                  _hoursStudiedFormatted,
                   style: const TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.bold,
@@ -1006,11 +1185,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
           ),
-          Container(
-            width: 1,
-            height: 60,
-            color: const Color(0xFFF1F5F9),
-          ),
+          Container(width: 1, height: 60, color: const Color(0xFFF1F5F9)),
           // Stat 3: Different Seats Used
           Expanded(
             child: Column(
@@ -1178,11 +1353,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.logout_rounded,
-                color: Color(0xFFEF4444),
-                size: 22,
-              ),
+              Icon(Icons.logout_rounded, color: Color(0xFFEF4444), size: 22),
               SizedBox(width: 8),
               Text(
                 'Logout',

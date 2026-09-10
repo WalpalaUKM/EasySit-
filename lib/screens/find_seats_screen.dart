@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'seat_booking_screen.dart';
 import 'student_home_screen.dart';
 import 'qr_scanner_screen.dart';
 import 'session_screen.dart';
 import 'profile_screen.dart';
 import '../widgets/app_bottom_nav.dart';
+import '../widgets/swipe_navigation_wrapper.dart';
 import '../utils/app_page_route.dart';
 import '../widgets/notification_bell_button.dart';
+import '../widgets/realtime_room_card.dart';
+import '../services/seat_expiry_service.dart';
+import 'dart:async';
 
 class FindSeatsScreen extends StatefulWidget {
   const FindSeatsScreen({super.key});
@@ -40,6 +43,7 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
     _buildingsStream = _firestore.collection('buildings').snapshots();
     _roomsStream = _firestore.collection('rooms').snapshots();
     _allRoomsStream = _buildAllRoomsStream();
+    SeatExpiryService.releaseAllExpiredSeatsGlobal();
   }
 
   @override
@@ -98,8 +102,16 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
                 await _firestore
                     .collection('seats')
                     .where('roomId', isEqualTo: roomId)
-                    .where('status', isEqualTo: 'available')
                     .get();
+
+            int availableSeats = 0;
+            for (var seatDoc in seatsSnapshot.docs) {
+              var sData = seatDoc.data() as Map<String, dynamic>;
+              if (SeatExpiryService.isSeatExpired(sData) ||
+                  (sData['status'] ?? 'available') == 'available') {
+                availableSeats++;
+              }
+            }
 
             allRooms.add({
               'buildingId': buildingId,
@@ -108,7 +120,7 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
               'floorName': floorName,
               'roomId': roomId,
               'roomName': roomName,
-              'availableSeats': seatsSnapshot.docs.length,
+              'availableSeats': availableSeats,
             });
           }
         }
@@ -530,7 +542,20 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
           );
         }
       },
-      child: Scaffold(
+      child: SwipeNavigationWrapper(
+        enableSwipeBack: true,
+        onSwipeBack: () {
+          if (Navigator.canPop(context)) {
+            Navigator.pop(context);
+          } else {
+            Navigator.pushAndRemoveUntil(
+              context,
+              AppPageRoute(builder: (_) => const StudentHomeScreen()),
+              (route) => false,
+            );
+          }
+        },
+        child: Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
@@ -781,127 +806,20 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
                     itemBuilder: (context, index) {
                       var room = filteredRooms[index];
                       var theme = _getAreaTheme(room['roomName']);
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(20),
-                          onTap: () {
-                            if (room['availableSeats'] > 0) {
-                              Navigator.push(
-                                context,
-                                AppPageRoute(
-                                  builder:
-                                      (_) => SeatBookingScreen(
-                                        roomId: room['roomId'],
-                                        roomName: room['roomName'],
-                                        buildingName: room['buildingName'],
-                                        floorName: room['floorName'],
-                                      ),
-                                ),
-                              );
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'No seats available in this room',
-                                  ),
-                                  backgroundColor: Colors.orange,
-                                ),
-                              );
-                            }
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: theme['color'],
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Icon(
-                                    theme['icon'],
-                                    color: theme['iconColor'],
-                                    size: 28,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        room['roomName'],
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.black87,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '${room['buildingName']} • ${room['floorName']}',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: Colors.grey.shade500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Row(
-                                  children: [
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          '${room['availableSeats']}',
-                                          style: TextStyle(
-                                            fontSize: 22,
-                                            fontWeight: FontWeight.bold,
-                                            color:
-                                                room['availableSeats'] > 0
-                                                    ? const Color(0xFF00C853)
-                                                    : Colors.red,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          'available',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey.shade500,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(width: 12),
-                                    const Icon(
-                                      Icons.arrow_forward_ios,
-                                      color: Colors.black87,
-                                      size: 16,
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
+
+                      return RealtimeRoomCard(
+                        key: ValueKey(room['roomId']),
+                        room: room,
+                        theme: theme,
+                        showBorder: true,
+                        showSeatsWord: false,
+                        customShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
                           ),
-                        ),
+                        ],
                       );
                     },
                   );
@@ -916,6 +834,7 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
         onTabSelected: _onNavTab,
       ),
     ),
-  );
+  ),
+);
 }
 }

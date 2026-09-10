@@ -11,6 +11,7 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'login_screen.dart';
 import '../utils/app_page_route.dart';
+import '../services/auth_persistence_service.dart';
 
 // ============================================================
 // EASYSIT DESIGN PALETTE (From Guidelines Document)
@@ -182,6 +183,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             icon: const Icon(Icons.logout),
             tooltip: 'Logout',
             onPressed: () async {
+              await AuthPersistenceService.clear();
               await FirebaseAuth.instance.signOut();
               if (context.mounted) {
                 Navigator.pushReplacement(
