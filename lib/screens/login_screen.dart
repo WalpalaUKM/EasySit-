@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'register_screen.dart';
+import 'forgot_password_screen.dart';
 import '../utils/app_page_route.dart';
 import '../services/auth_persistence_service.dart';
 
@@ -21,22 +22,71 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _rememberMe = false;
 
   String _studentNumberToEmail(String studentNumber) {
-    String trimmed = studentNumber.trim();
+    final trimmed = studentNumber.trim().toLowerCase();
     if (trimmed.startsWith('admin@')) {
-      String adminName = trimmed.substring(6);
+      final adminName =
+          trimmed.substring(6).replaceAll(RegExp(r'[^a-z0-9_]'), '_');
       return 'admin_$adminName@easysit.app';
     }
-    return '$trimmed@easysit.app';
+    final cleaned = trimmed.replaceAll(RegExp(r'[^a-z0-9_.-]'), '_');
+    return '$cleaned@easysit.app';
   }
 
   Future<void> _login() async {
+    final input = _studentNumberController.text.trim();
+    final password = _passwordController.text;
+
+    if (input.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter both your credentials and password.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
-      UserCredential userCredential = await FirebaseAuth.instance
-          .signInWithEmailAndPassword(
-            email: _studentNumberToEmail(_studentNumberController.text),
-            password: _passwordController.text,
-          );
+      String emailToAuth;
+      if (input.contains('@') && !input.toLowerCase().startsWith('admin@')) {
+        emailToAuth = input;
+      } else {
+        emailToAuth = _studentNumberToEmail(input);
+      }
+
+      UserCredential userCredential;
+      try {
+        userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: emailToAuth,
+          password: password,
+        );
+      } on FirebaseAuthException catch (authEx) {
+        if (authEx.code == 'user-not-found' && !input.contains('@')) {
+          final query = await FirebaseFirestore.instance
+              .collection('users')
+              .where('studentId', isEqualTo: input)
+              .limit(1)
+              .get();
+          if (query.docs.isNotEmpty) {
+            final realEmail =
+                (query.docs.first.data()['email'] ?? '').toString().trim();
+            if (realEmail.isNotEmpty && realEmail.contains('@')) {
+              userCredential =
+                  await FirebaseAuth.instance.signInWithEmailAndPassword(
+                email: realEmail,
+                password: password,
+              );
+            } else {
+              rethrow;
+            }
+          } else {
+            rethrow;
+          }
+        } else {
+          rethrow;
+        }
+      }
 
       DocumentSnapshot userDoc =
           await FirebaseFirestore.instance
@@ -233,10 +283,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                     TextButton(
-                      onPressed:
-                          () => ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Forgot Password!')),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          AppPageRoute(
+                            builder: (_) => ForgotPasswordScreen(
+                              initialIdentifier: _studentNumberController.text,
+                            ),
                           ),
+                        );
+                      },
                       child: const Text(
                         'Forgot Password?',
                         style: TextStyle(

@@ -7,6 +7,7 @@ import 'screens/login_screen.dart';
 import 'screens/student_home_screen.dart';
 import 'screens/admin_dashboard.dart';
 import 'screens/session_screen.dart';
+import 'screens/forgot_password_screen.dart';
 import 'services/notification_service.dart';
 import 'services/session_watcher.dart';
 import 'package:flutter/services.dart';
@@ -78,6 +79,10 @@ class EasySitApp extends StatelessWidget {
                 break;
               case '/session':
                 screen = const SessionScreen();
+                break;
+              case '/forgot_password':
+                final initialId = settings.arguments as String?;
+                screen = ForgotPasswordScreen(initialIdentifier: initialId);
                 break;
               default:
                 return null;
