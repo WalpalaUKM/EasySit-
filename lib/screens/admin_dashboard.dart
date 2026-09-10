@@ -8,11 +8,119 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:qr/qr.dart';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import 'login_screen.dart';
 import '../utils/app_page_route.dart';
 import '../services/auth_persistence_service.dart';
+
+// ============================================================
+// EASYSIT DESIGN PALETTE (From Guidelines Document)
+// ============================================================
+class EasySitColors {
+  // Brand & Identity
+  static const Color primary = Color(0xFF386CD1);       // Logo blue - primary action & active nav
+  static const Color deepPurple = Color(0xFF29234F);    // Deep purple - logo backdrop & headers
+  static const Color logoLavender = Color(0xFFB5BBDB);  // Easy text on dark logo bg
+  static const Color mutedLavender = Color(0xFF989CBC); // Tagline on dark
+
+  // Interactive States
+  static const Color hover = Color(0xFF2E5DB8);
+  static const Color pressed = Color(0xFF254D9B);
+  static const Color focusRing = Color(0xFF254D9B);
+  static const Color primaryTint = Color(0xFFEDF3FF);   // Selected navigation & filter bg
+  static const Color softBlueBorder = Color(0xFFBED0F5);
+  static const Color purpleAccent = Color(0xFF6D28D9);
+  static const Color accentTint = Color(0xFFF3EEFF);
+
+  // Surfaces & Backgrounds
+  static const Color appBackground = Color(0xFFF7F8FC); // Main screen background
+  static const Color surface = Color(0xFFFFFFFF);       // Cards, drawer, dialogs & fields
+  static const Color subtleSurface = Color(0xFFF1F5F9); // Secondary panels & icon containers
+
+  // Typography & Boundaries
+  static const Color mainText = Color(0xFF0F172A);      // Titles, key values
+  static const Color bodyText = Color(0xFF334155);      // Descriptions & field labels
+  static const Color secondaryText = Color(0xFF64748B); // Helper text, timestamps, placeholders
+  static const Color divider = Color(0xFFE2E8F0);       // Subtle card edges & separators
+  static const Color inputBorder = Color(0xFF7C899D);   // Editable field boundaries
+  static const Color disabledFill = Color(0xFFE2E8F0);
+  static const Color disabledText = Color(0xFF64748B);
+
+  // Feedback & Statuses
+  // Success / Available / Active
+  static const Color successFg = Color(0xFF15803D);
+  static const Color successBg = Color(0xFFF0FDF4);
+  static const Color successBorder = Color(0xFFBBF7D0);
+
+  // Warning / Pending
+  static const Color warningFg = Color(0xFFB45309);
+  static const Color warningBg = Color(0xFFFFFBEB);
+  static const Color warningBorder = Color(0xFFFDE68A);
+
+  // Error / Blocked / Destructive
+  static const Color errorFg = Color(0xFFB91C1C);
+  static const Color errorBg = Color(0xFFFEF2F2);
+  static const Color errorBorder = Color(0xFFFECACA);
+
+  // Information
+  static const Color infoFg = Color(0xFF386CD1);
+  static const Color infoBg = Color(0xFFEDF3FF);
+  static const Color infoBorder = Color(0xFFBED0F5);
+
+  // Booked / Occupied
+  static const Color bookedFg = Color(0xFF475569);
+  static const Color bookedBg = Color(0xFFE2E8F0);
+}
+
+// Shared UI Helpers
+InputDecoration _buildEasySitInputDecoration({
+  required String labelText,
+  String? hintText,
+  Widget? prefixIcon,
+}) {
+  return InputDecoration(
+    labelText: labelText,
+    hintText: hintText,
+    prefixIcon: prefixIcon,
+    labelStyle: const TextStyle(color: EasySitColors.bodyText, fontSize: 14),
+    hintStyle: const TextStyle(color: EasySitColors.secondaryText, fontSize: 14),
+    filled: true,
+    fillColor: EasySitColors.surface,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: const BorderSide(color: EasySitColors.divider, width: 1.5),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: const BorderSide(color: EasySitColors.primary, width: 2),
+    ),
+    errorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: const BorderSide(color: EasySitColors.errorFg, width: 1.5),
+    ),
+    focusedErrorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: const BorderSide(color: EasySitColors.errorFg, width: 2),
+    ),
+  );
+}
+
+Widget _buildEasySitCard({required Widget child, EdgeInsetsGeometry? margin, EdgeInsetsGeometry? padding}) {
+  return Card(
+    elevation: 0,
+    margin: margin ?? const EdgeInsets.only(bottom: 16),
+    color: EasySitColors.surface,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+      side: const BorderSide(color: EasySitColors.divider, width: 1),
+    ),
+    child: Padding(
+      padding: padding ?? const EdgeInsets.all(20.0),
+      child: child,
+    ),
+  );
+}
 
 // ============================================================
 // MAIN ADMIN DASHBOARD
@@ -28,6 +136,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _selectedIndex = 0;
 
   final List<String> _menuTitles = [
+    'Home Overview',
     'Manage Buildings',
     'Manage Floors',
     'Manage Rooms',
@@ -37,6 +146,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   ];
 
   final List<IconData> _menuIcons = [
+    Icons.home_rounded,
     Icons.business,
     Icons.vertical_align_top,
     Icons.door_front_door,
@@ -48,13 +158,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: EasySitColors.appBackground,
       appBar: AppBar(
-        title: const Text('Admin Dashboard'),
-        backgroundColor: Colors.blue,
+        title: const Text(
+          'Admin Dashboard',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 19),
+        ),
+        backgroundColor: EasySitColors.primary,
         foregroundColor: Colors.white,
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
+            tooltip: 'Logout',
             onPressed: () async {
               await AuthPersistenceService.clear();
               await FirebaseAuth.instance.signOut();
@@ -69,54 +185,88 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ],
       ),
       drawer: Drawer(
+        backgroundColor: EasySitColors.surface,
         child: Column(
           children: [
-            const SizedBox(height: 20),
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                'Admin Menu',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue,
-                ),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
+              decoration: const BoxDecoration(
+                color: EasySitColors.deepPurple,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    'EasySit',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Administrator Portal',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: EasySitColors.logoLavender,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const Divider(),
+            const SizedBox(height: 8),
             Expanded(
               child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 itemCount: _menuTitles.length,
                 itemBuilder: (context, index) {
-                  return ListTile(
-                    selected: _selectedIndex == index,
-                    selectedTileColor: Colors.blue.shade50,
-                    leading: Icon(
-                      _menuIcons[index],
-                      color:
-                          _selectedIndex == index
-                              ? Colors.blue
-                              : Colors.grey.shade700,
+                  final bool isSelected = _selectedIndex == index;
+                  return Container(
+                    margin: const EdgeInsets.symmetric(vertical: 2),
+                    decoration: BoxDecoration(
+                      color: isSelected ? EasySitColors.primaryTint : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    title: Text(
-                      _menuTitles[index],
-                      style: TextStyle(
-                        color:
-                            _selectedIndex == index
-                                ? Colors.blue
-                                : Colors.black87,
-                        fontWeight:
-                            _selectedIndex == index
-                                ? FontWeight.bold
-                                : FontWeight.normal,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                      leading: Icon(
+                        _menuIcons[index],
+                        color: isSelected ? EasySitColors.primary : EasySitColors.secondaryText,
                       ),
+                      title: Row(
+                        children: [
+                          if (isSelected)
+                            Container(
+                              width: 4,
+                              height: 18,
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: BoxDecoration(
+                                color: EasySitColors.primary,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          Expanded(
+                            child: Text(
+                              _menuTitles[index],
+                              style: TextStyle(
+                                color: isSelected ? EasySitColors.primary : EasySitColors.mainText,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      onTap: () {
+                        setState(() {
+                          _selectedIndex = index;
+                        });
+                        Navigator.pop(context);
+                      },
                     ),
-                    onTap: () {
-                      setState(() {
-                        _selectedIndex = index;
-                      });
-                      Navigator.pop(context);
-                    },
                   );
                 },
               ),
@@ -131,20 +281,484 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _buildScreen(int index) {
     switch (index) {
       case 0:
-        return const ManageBuildingsScreen();
+        return AdminHomeScreen(
+          onNavigate: (targetIndex) {
+            setState(() {
+              _selectedIndex = targetIndex;
+            });
+          },
+        );
       case 1:
-        return const ManageFloorsScreen();
+        return const ManageBuildingsScreen();
       case 2:
-        return const ManageRoomsScreen();
+        return const ManageFloorsScreen();
       case 3:
-        return const ManageSeatsScreen();
+        return const ManageRoomsScreen();
       case 4:
-        return const StudentBehaviorScreen();
+        return const ManageSeatsScreen();
       case 5:
+        return const StudentBehaviorScreen();
+      case 6:
         return const SendNotificationScreen();
       default:
-        return const Center(child: Text('Unknown'));
+        return const Center(
+          child: Text(
+            'Unknown Screen',
+            style: TextStyle(color: EasySitColors.mainText),
+          ),
+        );
     }
+  }
+}
+
+// ============================================================
+// 0. ADMIN HOME OVERVIEW SCREEN (Matches Design Mockup)
+// ============================================================
+class AdminHomeScreen extends StatelessWidget {
+  final Function(int) onNavigate;
+
+  const AdminHomeScreen({super.key, required this.onNavigate});
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return 'Good morning';
+    } else if (hour < 17) {
+      return 'Good afternoon';
+    } else {
+      return 'Good evening';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final FirebaseFirestore firestore = FirebaseFirestore.instance;
+    final User? currentUser = FirebaseAuth.instance.currentUser;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header / Tagline
+          const Text(
+            'YOUR CAMPUS AT A GLANCE',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: EasySitColors.primary,
+              letterSpacing: 1.1,
+            ),
+          ),
+          const SizedBox(height: 4),
+          FutureBuilder<DocumentSnapshot>(
+            future: currentUser != null
+                ? firestore.collection('users').doc(currentUser.uid).get()
+                : null,
+            builder: (context, snapshot) {
+              String adminName = 'Admin';
+              if (snapshot.hasData && snapshot.data != null && snapshot.data!.exists) {
+                var data = snapshot.data!.data() as Map<String, dynamic>?;
+                if (data != null && data['fullName'] != null && (data['fullName'] as String).trim().isNotEmpty) {
+                  adminName = (data['fullName'] as String).trim();
+                }
+              } else if (currentUser?.displayName != null && currentUser!.displayName!.isNotEmpty) {
+                adminName = currentUser.displayName!;
+              }
+
+              return Text(
+                '${_getGreeting()}, $adminName',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: EasySitColors.mainText,
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Spaces, seat usage and student access.',
+            style: TextStyle(
+              fontSize: 14,
+              color: EasySitColors.secondaryText,
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // 1. Featured Dark Banner Card (Seat Usage Overview)
+          StreamBuilder<QuerySnapshot>(
+            stream: firestore.collection('seats').snapshots(),
+            builder: (context, seatsSnapshot) {
+              int totalSeats = 0;
+              int occupiedSeats = 0;
+              int availableSeats = 0;
+
+              if (seatsSnapshot.hasData) {
+                totalSeats = seatsSnapshot.data!.docs.length;
+                for (var doc in seatsSnapshot.data!.docs) {
+                  var data = doc.data() as Map<String, dynamic>;
+                  String status = (data['status'] ?? 'available').toString();
+                  if (status == 'booked' || status == 'occupied') {
+                    occupiedSeats++;
+                  } else if (status == 'available') {
+                    availableSeats++;
+                  }
+                }
+              }
+
+              int occupiedPct = totalSeats > 0 ? ((occupiedSeats / totalSeats) * 100).round() : 0;
+              double progressVal = totalSeats > 0 ? (occupiedSeats / totalSeats) : 0.0;
+
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(22.0),
+                decoration: BoxDecoration(
+                  color: EasySitColors.deepPurple,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: EasySitColors.deepPurple.withValues(alpha: 0.15),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Seat usage',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'LIVE DATA',
+                            style: TextStyle(
+                              color: EasySitColors.logoLavender,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      '$occupiedPct% occupied',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '$occupiedSeats in use  •  $availableSeats available',
+                      style: const TextStyle(
+                        color: EasySitColors.logoLavender,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: progressVal,
+                        backgroundColor: Colors.white.withValues(alpha: 0.2),
+                        valueColor: const AlwaysStoppedAnimation<Color>(EasySitColors.primary),
+                        minHeight: 8,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Live overview • updated in real-time',
+                      style: TextStyle(
+                        color: EasySitColors.mutedLavender,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+
+          // 2. Metric Summary Cards Row (Buildings, Rooms, Total seats)
+          StreamBuilder<QuerySnapshot>(
+            stream: firestore.collection('buildings').snapshots(),
+            builder: (context, bSnapshot) {
+              int buildingCount = bSnapshot.hasData ? bSnapshot.data!.docs.length : 0;
+              String formattedBuildings = buildingCount.toString().padLeft(2, '0');
+
+              return StreamBuilder<QuerySnapshot>(
+                stream: firestore.collection('rooms').snapshots(),
+                builder: (context, rSnapshot) {
+                  int roomCount = rSnapshot.hasData ? rSnapshot.data!.docs.length : 0;
+                  String formattedRooms = roomCount.toString().padLeft(2, '0');
+
+                  return StreamBuilder<QuerySnapshot>(
+                    stream: firestore.collection('seats').snapshots(),
+                    builder: (context, sSnapshot) {
+                      int seatCount = sSnapshot.hasData ? sSnapshot.data!.docs.length : 0;
+
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: _buildMetricCard(
+                              number: formattedBuildings,
+                              label: 'Buildings',
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _buildMetricCard(
+                              number: formattedRooms,
+                              label: 'Rooms',
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _buildMetricCard(
+                              number: seatCount.toString(),
+                              label: 'Total seats',
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+
+          // 3. Student Access Card
+          StreamBuilder<QuerySnapshot>(
+            stream: firestore
+                .collection('users')
+                .where('userType', isEqualTo: 'student')
+                .snapshots(),
+            builder: (context, uSnapshot) {
+              int activeStudents = 0;
+              int blockedStudents = 0;
+
+              if (uSnapshot.hasData) {
+                for (var doc in uSnapshot.data!.docs) {
+                  var data = doc.data() as Map<String, dynamic>;
+                  bool isBlocked = data['isBlocked'] ?? false;
+                  if (isBlocked) {
+                    blockedStudents++;
+                  } else {
+                    activeStudents++;
+                  }
+                }
+              }
+
+              String formattedActive = activeStudents.toString().padLeft(2, '0');
+              String formattedBlocked = blockedStudents.toString().padLeft(2, '0');
+
+              return _buildEasySitCard(
+                margin: EdgeInsets.zero,
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Student access',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: EasySitColors.mainText,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      'Who can use EasySit',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: EasySitColors.secondaryText,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Text(
+                          '$formattedActive active',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: EasySitColors.successFg,
+                          ),
+                        ),
+                        const SizedBox(width: 32),
+                        Text(
+                          '$formattedBlocked blocked',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: EasySitColors.errorFg,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Live counts • access status, not usage behavior',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: EasySitColors.secondaryText,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 24),
+
+          // 4. Quick Actions Section (2x2 Grid)
+          const Text(
+            'Quick actions',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: EasySitColors.mainText,
+            ),
+          ),
+          const SizedBox(height: 12),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 1.7,
+            children: [
+              _buildQuickActionCard(
+                icon: Icons.business,
+                label: 'Manage\nBuildings',
+                onTap: () => onNavigate(1),
+              ),
+              _buildQuickActionCard(
+                icon: Icons.event_seat,
+                label: 'Manage Seats &\nQR',
+                onTap: () => onNavigate(4),
+              ),
+              _buildQuickActionCard(
+                icon: Icons.person_outline,
+                label: 'Student\nBehavior',
+                onTap: () => onNavigate(5),
+              ),
+              _buildQuickActionCard(
+                icon: Icons.notifications_none,
+                label: 'Send\nNotification',
+                onTap: () => onNavigate(6),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Metric Card Helper
+  Widget _buildMetricCard({required String number, required String label}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      decoration: BoxDecoration(
+        color: EasySitColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: EasySitColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            number,
+            style: const TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+              color: EasySitColors.primary,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              color: EasySitColors.secondaryText,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Quick Action Card Helper
+  Widget _buildQuickActionCard({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: EasySitColors.primaryTint,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: EasySitColors.softBlueBorder.withValues(alpha: 0.5)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: EasySitColors.primary, size: 22),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: EasySitColors.pressed,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -182,14 +796,17 @@ class _ManageBuildingsScreenState extends State<ManageBuildingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Building added!'),
-            backgroundColor: Colors.green,
+            backgroundColor: EasySitColors.successFg,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: EasySitColors.errorFg,
+          ),
         );
       }
     }
@@ -201,19 +818,22 @@ class _ManageBuildingsScreenState extends State<ManageBuildingsScreen> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Delete Building'),
+            backgroundColor: EasySitColors.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            title: const Text('Delete Building', style: TextStyle(color: EasySitColors.mainText, fontWeight: FontWeight.bold)),
             content: const Text(
               'This will delete ALL Floors, Rooms, and Seats inside this building. Continue?',
+              style: TextStyle(color: EasySitColors.bodyText),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
+                child: const Text('Cancel', style: TextStyle(color: EasySitColors.secondaryText)),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Delete All'),
+                style: TextButton.styleFrom(foregroundColor: EasySitColors.errorFg),
+                child: const Text('Delete All', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -256,14 +876,17 @@ class _ManageBuildingsScreenState extends State<ManageBuildingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Building and all data deleted!'),
-            backgroundColor: Colors.green,
+            backgroundColor: EasySitColors.successFg,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: EasySitColors.errorFg,
+          ),
         );
       }
     }
@@ -278,28 +901,37 @@ class _ManageBuildingsScreenState extends State<ManageBuildingsScreen> {
         children: [
           const Text(
             'Manage Buildings',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: EasySitColors.mainText,
+            ),
           ),
-          const SizedBox(height: 20),
-          Card(
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Building Name',
-                      border: OutlineInputBorder(),
-                    ),
+          const SizedBox(height: 16),
+          _buildEasySitCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: _nameController,
+                  decoration: _buildEasySitInputDecoration(
+                    labelText: 'Building Name',
+                    hintText: 'e.g. Science Library',
+                    prefixIcon: const Icon(Icons.business, color: EasySitColors.secondaryText),
                   ),
-                  const SizedBox(height: 15),
-                  ElevatedButton(
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 48,
+                  child: ElevatedButton(
                     onPressed: _isLoading ? null : _addBuilding,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
+                      backgroundColor: EasySitColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
                     ),
                     child: _isLoading
                         ? const Center(
@@ -314,18 +946,26 @@ class _ManageBuildingsScreenState extends State<ManageBuildingsScreen> {
                           )
                         : const Text(
                             'Add Building',
-                            style: TextStyle(color: Colors.white),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 20),
           const Text(
             'Building List',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+              color: EasySitColors.mainText,
+            ),
           ),
           const SizedBox(height: 10),
           StreamBuilder<QuerySnapshot>(
@@ -335,35 +975,71 @@ class _ManageBuildingsScreenState extends State<ManageBuildingsScreen> {
                     .orderBy('createdAt', descending: true)
                     .snapshots(),
             builder: (context, snapshot) {
-              if (snapshot.hasError)
-                return Center(child: Text('Error: ${snapshot.error}'));
-              if (snapshot.connectionState == ConnectionState.waiting)
-                return const Center(child: CircularProgressIndicator());
+              if (snapshot.hasError) {
+                return Center(
+                  child: Text(
+                    'Error: ${snapshot.error}',
+                    style: const TextStyle(color: EasySitColors.errorFg),
+                  ),
+                );
+              }
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: CircularProgressIndicator(color: EasySitColors.primary),
+                );
+              }
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const Center(child: Text('No buildings added yet.'));
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: Text(
+                      'No buildings added yet.',
+                      style: TextStyle(color: EasySitColors.secondaryText),
+                    ),
+                  ),
+                );
               }
               return ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: snapshot.data!.docs.length,
                 itemBuilder: (context, index) {
-                    var doc = snapshot.data!.docs[index];
-                    var data = doc.data() as Map<String, dynamic>;
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      child: ListTile(
-                        leading: const Icon(Icons.business, color: Colors.blue),
-                        title: Text(data['name'] ?? 'Unnamed'),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _deleteBuilding(doc.id),
+                  var doc = snapshot.data!.docs[index];
+                  var data = doc.data() as Map<String, dynamic>;
+                  return Container(
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    decoration: BoxDecoration(
+                      color: EasySitColors.surface,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: EasySitColors.divider),
+                    ),
+                    child: ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: EasySitColors.primaryTint,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.business, color: EasySitColors.primary),
+                      ),
+                      title: Text(
+                        data['name'] ?? 'Unnamed',
+                        style: const TextStyle(
+                          color: EasySitColors.mainText,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    );
-                  },
-                );
-              },
-            ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline, color: EasySitColors.errorFg),
+                        onPressed: () => _deleteBuilding(doc.id),
+                        tooltip: 'Delete Building',
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
         ],
       ),
     );
@@ -412,14 +1088,17 @@ class _ManageFloorsScreenState extends State<ManageFloorsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Floor added!'),
-            backgroundColor: Colors.green,
+            backgroundColor: EasySitColors.successFg,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: EasySitColors.errorFg,
+          ),
         );
       }
     }
@@ -431,19 +1110,22 @@ class _ManageFloorsScreenState extends State<ManageFloorsScreen> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Delete Floor'),
+            backgroundColor: EasySitColors.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            title: const Text('Delete Floor', style: TextStyle(color: EasySitColors.mainText, fontWeight: FontWeight.bold)),
             content: const Text(
               'This will delete all Rooms and Seats in this floor. Continue?',
+              style: TextStyle(color: EasySitColors.bodyText),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
+                child: const Text('Cancel', style: TextStyle(color: EasySitColors.secondaryText)),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Delete'),
+                style: TextButton.styleFrom(foregroundColor: EasySitColors.errorFg),
+                child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -476,14 +1158,17 @@ class _ManageFloorsScreenState extends State<ManageFloorsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Floor and related data deleted!'),
-            backgroundColor: Colors.green,
+            backgroundColor: EasySitColors.successFg,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: EasySitColors.errorFg,
+          ),
         );
       }
     }
@@ -498,67 +1183,78 @@ class _ManageFloorsScreenState extends State<ManageFloorsScreen> {
         children: [
           const Text(
             'Manage Floors',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: EasySitColors.mainText,
+            ),
           ),
-          const SizedBox(height: 20),
-          Card(
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  StreamBuilder<QuerySnapshot>(
-                    stream: _firestore.collection('buildings').snapshots(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                        return DropdownButtonFormField<String>(
-                          value: null,
-                          items: const [],
-                          hint: const Text('No Buildings'),
-                          onChanged: null,
-                          decoration: const InputDecoration(
-                            labelText: 'Building',
-                            border: OutlineInputBorder(),
-                          ),
-                        );
-                      }
-                      var items = snapshot.data!.docs.map((doc) {
-                        var data = doc.data() as Map<String, dynamic>;
-                        return DropdownMenuItem<String>(
-                          value: doc.id,
-                          child: Text(data['name'] ?? 'Unnamed'),
-                        );
-                      }).toList();
+          const SizedBox(height: 16),
+          _buildEasySitCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                StreamBuilder<QuerySnapshot>(
+                  stream: _firestore.collection('buildings').snapshots(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                       return DropdownButtonFormField<String>(
-                        value: _selectedBuildingId,
-                        items: items,
-                        decoration: const InputDecoration(
+                        value: null,
+                        items: const [],
+                        hint: const Text('No Buildings'),
+                        onChanged: null,
+                        decoration: _buildEasySitInputDecoration(
                           labelText: 'Building',
-                          border: OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.business, color: EasySitColors.secondaryText),
                         ),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedBuildingId = value;
-                          });
-                        },
-                        hint: const Text('Select Building'),
                       );
-                    },
+                    }
+                    var items = snapshot.data!.docs.map((doc) {
+                      var data = doc.data() as Map<String, dynamic>;
+                      return DropdownMenuItem<String>(
+                        value: doc.id,
+                        child: Text(
+                          data['name'] ?? 'Unnamed',
+                          style: const TextStyle(color: EasySitColors.mainText),
+                        ),
+                      );
+                    }).toList();
+                    return DropdownButtonFormField<String>(
+                      value: _selectedBuildingId,
+                      items: items,
+                      decoration: _buildEasySitInputDecoration(
+                        labelText: 'Building',
+                        prefixIcon: const Icon(Icons.business, color: EasySitColors.secondaryText),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedBuildingId = value;
+                        });
+                      },
+                      hint: const Text('Select Building', style: TextStyle(color: EasySitColors.secondaryText)),
+                    );
+                  },
+                ),
+                const SizedBox(height: 15),
+                TextField(
+                  controller: _floorNameController,
+                  decoration: _buildEasySitInputDecoration(
+                    labelText: 'Floor Name (e.g. Ground Floor)',
+                    prefixIcon: const Icon(Icons.vertical_align_top, color: EasySitColors.secondaryText),
                   ),
-                  const SizedBox(height: 15),
-                  TextField(
-                    controller: _floorNameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Floor Name (e.g. Ground Floor)',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  ElevatedButton(
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 48,
+                  child: ElevatedButton(
                     onPressed: _isLoading ? null : _addFloor,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
+                      backgroundColor: EasySitColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
                     ),
                     child: _isLoading
                         ? const Center(
@@ -573,18 +1269,26 @@ class _ManageFloorsScreenState extends State<ManageFloorsScreen> {
                           )
                         : const Text(
                             'Add Floor',
-                            style: TextStyle(color: Colors.white),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 20),
           const Text(
             'Floor List',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+              color: EasySitColors.mainText,
+            ),
           ),
           const SizedBox(height: 10),
           StreamBuilder<QuerySnapshot>(
@@ -594,55 +1298,99 @@ class _ManageFloorsScreenState extends State<ManageFloorsScreen> {
                     .orderBy('createdAt', descending: true)
                     .snapshots(),
             builder: (context, snapshot) {
-              if (snapshot.hasError)
-                return Center(child: Text('Error: ${snapshot.error}'));
-              if (snapshot.connectionState == ConnectionState.waiting)
-                return const Center(child: CircularProgressIndicator());
+              if (snapshot.hasError) {
+                return Center(
+                  child: Text(
+                    'Error: ${snapshot.error}',
+                    style: const TextStyle(color: EasySitColors.errorFg),
+                  ),
+                );
+              }
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: CircularProgressIndicator(color: EasySitColors.primary),
+                );
+              }
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const Center(child: Text('No floors added yet.'));
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: Text(
+                      'No floors added yet.',
+                      style: TextStyle(color: EasySitColors.secondaryText),
+                    ),
+                  ),
+                );
               }
               return ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: snapshot.data!.docs.length,
                 itemBuilder: (context, index) {
-                    var doc = snapshot.data!.docs[index];
-                    var data = doc.data() as Map<String, dynamic>;
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      child: ListTile(
-                        leading: const Icon(
+                  var doc = snapshot.data!.docs[index];
+                  var data = doc.data() as Map<String, dynamic>;
+                  return Container(
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    decoration: BoxDecoration(
+                      color: EasySitColors.surface,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: EasySitColors.divider),
+                    ),
+                    child: ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: EasySitColors.primaryTint,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
                           Icons.vertical_align_top,
-                          color: Colors.blue,
-                        ),
-                        title: Text(data['name'] ?? 'Unnamed'),
-                        subtitle: FutureBuilder<DocumentSnapshot>(
-                          future:
-                              _firestore
-                                  .collection('buildings')
-                                  .doc(data['buildingId'])
-                                  .get(),
-                          builder: (context, buildingSnapshot) {
-                            if (!buildingSnapshot.hasData)
-                              return const Text('Loading...');
-                            var buildingData =
-                                buildingSnapshot.data?.data()
-                                    as Map<String, dynamic>?;
-                            return Text(
-                              'Building: ${buildingData?['name'] ?? 'Unknown'}',
-                            );
-                          },
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _deleteFloor(doc.id),
+                          color: EasySitColors.primary,
                         ),
                       ),
-                    );
-                  },
-                );
-              },
-            ),
+                      title: Text(
+                        data['name'] ?? 'Unnamed',
+                        style: const TextStyle(
+                          color: EasySitColors.mainText,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: FutureBuilder<DocumentSnapshot>(
+                        future:
+                            _firestore
+                                .collection('buildings')
+                                .doc(data['buildingId'])
+                                .get(),
+                        builder: (context, buildingSnapshot) {
+                          if (!buildingSnapshot.hasData) {
+                            return const Text(
+                              'Loading...',
+                              style: TextStyle(color: EasySitColors.secondaryText, fontSize: 12),
+                            );
+                          }
+                          var buildingData =
+                              buildingSnapshot.data?.data()
+                                  as Map<String, dynamic>?;
+                          return Text(
+                            'Building: ${buildingData?['name'] ?? 'Unknown'}',
+                            style: const TextStyle(
+                              color: EasySitColors.secondaryText,
+                              fontSize: 12,
+                            ),
+                          );
+                        },
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline, color: EasySitColors.errorFg),
+                        onPressed: () => _deleteFloor(doc.id),
+                        tooltip: 'Delete Floor',
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
         ],
       ),
     );
@@ -705,14 +1453,17 @@ class _ManageRoomsScreenState extends State<ManageRoomsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Room added!'),
-            backgroundColor: Colors.green,
+            backgroundColor: EasySitColors.successFg,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: EasySitColors.errorFg,
+          ),
         );
       }
     }
@@ -724,19 +1475,22 @@ class _ManageRoomsScreenState extends State<ManageRoomsScreen> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Delete Room'),
+            backgroundColor: EasySitColors.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            title: const Text('Delete Room', style: TextStyle(color: EasySitColors.mainText, fontWeight: FontWeight.bold)),
             content: const Text(
               'This will delete all Seats in this room. Continue?',
+              style: TextStyle(color: EasySitColors.bodyText),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
+                child: const Text('Cancel', style: TextStyle(color: EasySitColors.secondaryText)),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Delete'),
+                style: TextButton.styleFrom(foregroundColor: EasySitColors.errorFg),
+                child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -759,14 +1513,17 @@ class _ManageRoomsScreenState extends State<ManageRoomsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Room and seats deleted!'),
-            backgroundColor: Colors.green,
+            backgroundColor: EasySitColors.successFg,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: EasySitColors.errorFg,
+          ),
         );
       }
     }
@@ -781,119 +1538,133 @@ class _ManageRoomsScreenState extends State<ManageRoomsScreen> {
         children: [
           const Text(
             'Manage Rooms',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: EasySitColors.mainText,
+            ),
           ),
-          const SizedBox(height: 20),
-          Card(
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  StreamBuilder<QuerySnapshot>(
-                    stream: _firestore.collection('buildings').snapshots(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                        return DropdownButtonFormField<String>(
-                          value: null,
-                          items: const [],
-                          hint: const Text('No Buildings'),
-                          onChanged: null,
-                          decoration: const InputDecoration(
-                            labelText: 'Building',
-                            border: OutlineInputBorder(),
-                          ),
-                        );
-                      }
-                      var items = snapshot.data!.docs.map((doc) {
-                        var data = doc.data() as Map<String, dynamic>;
-                        return DropdownMenuItem<String>(
-                          value: doc.id,
-                          child: Text(data['name'] ?? 'Unnamed'),
-                        );
-                      }).toList();
+          const SizedBox(height: 16),
+          _buildEasySitCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                StreamBuilder<QuerySnapshot>(
+                  stream: _firestore.collection('buildings').snapshots(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                       return DropdownButtonFormField<String>(
-                        value: _selectedBuildingId,
-                        items: items,
-                        decoration: const InputDecoration(
+                        value: null,
+                        items: const [],
+                        hint: const Text('No Buildings'),
+                        onChanged: null,
+                        decoration: _buildEasySitInputDecoration(
                           labelText: 'Building',
-                          border: OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.business, color: EasySitColors.secondaryText),
                         ),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedBuildingId = value;
-                            _selectedFloorId = null;
-                          });
-                        },
-                        hint: const Text('Select Building'),
                       );
-                    },
-                  ),
-                  const SizedBox(height: 15),
-                  StreamBuilder<QuerySnapshot>(
-                    stream: _getFloors(),
-                    builder: (context, snapshot) {
-                      if (_selectedBuildingId == null) {
-                        return DropdownButtonFormField<String>(
-                          value: null,
-                          items: const [],
-                          hint: const Text('Select Building first'),
-                          onChanged: null,
-                          decoration: const InputDecoration(
-                            labelText: 'Floor',
-                            border: OutlineInputBorder(),
-                          ),
-                        );
-                      }
-                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                        return DropdownButtonFormField<String>(
-                          value: null,
-                          items: const [],
-                          hint: const Text('No Floors'),
-                          onChanged: null,
-                          decoration: const InputDecoration(
-                            labelText: 'Floor',
-                            border: OutlineInputBorder(),
-                          ),
-                        );
-                      }
-                      var items = snapshot.data!.docs.map((doc) {
-                        var data = doc.data() as Map<String, dynamic>;
-                        return DropdownMenuItem<String>(
-                          value: doc.id,
-                          child: Text(data['name'] ?? 'Unnamed'),
-                        );
-                      }).toList();
+                    }
+                    var items = snapshot.data!.docs.map((doc) {
+                      var data = doc.data() as Map<String, dynamic>;
+                      return DropdownMenuItem<String>(
+                        value: doc.id,
+                        child: Text(
+                          data['name'] ?? 'Unnamed',
+                          style: const TextStyle(color: EasySitColors.mainText),
+                        ),
+                      );
+                    }).toList();
+                    return DropdownButtonFormField<String>(
+                      value: _selectedBuildingId,
+                      items: items,
+                      decoration: _buildEasySitInputDecoration(
+                        labelText: 'Building',
+                        prefixIcon: const Icon(Icons.business, color: EasySitColors.secondaryText),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedBuildingId = value;
+                          _selectedFloorId = null;
+                        });
+                      },
+                      hint: const Text('Select Building', style: TextStyle(color: EasySitColors.secondaryText)),
+                    );
+                  },
+                ),
+                const SizedBox(height: 15),
+                StreamBuilder<QuerySnapshot>(
+                  stream: _getFloors(),
+                  builder: (context, snapshot) {
+                    if (_selectedBuildingId == null) {
                       return DropdownButtonFormField<String>(
-                        value: _selectedFloorId,
-                        items: items,
-                        decoration: const InputDecoration(
+                        value: null,
+                        items: const [],
+                        hint: const Text('Select Building first', style: TextStyle(color: EasySitColors.secondaryText)),
+                        onChanged: null,
+                        decoration: _buildEasySitInputDecoration(
                           labelText: 'Floor',
-                          border: OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.vertical_align_top, color: EasySitColors.secondaryText),
                         ),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedFloorId = value;
-                          });
-                        },
-                        hint: const Text('Select Floor'),
                       );
-                    },
+                    }
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return DropdownButtonFormField<String>(
+                        value: null,
+                        items: const [],
+                        hint: const Text('No Floors'),
+                        onChanged: null,
+                        decoration: _buildEasySitInputDecoration(
+                          labelText: 'Floor',
+                          prefixIcon: const Icon(Icons.vertical_align_top, color: EasySitColors.secondaryText),
+                        ),
+                      );
+                    }
+                    var items = snapshot.data!.docs.map((doc) {
+                      var data = doc.data() as Map<String, dynamic>;
+                      return DropdownMenuItem<String>(
+                        value: doc.id,
+                        child: Text(
+                          data['name'] ?? 'Unnamed',
+                          style: const TextStyle(color: EasySitColors.mainText),
+                        ),
+                      );
+                    }).toList();
+                    return DropdownButtonFormField<String>(
+                      value: _selectedFloorId,
+                      items: items,
+                      decoration: _buildEasySitInputDecoration(
+                        labelText: 'Floor',
+                        prefixIcon: const Icon(Icons.vertical_align_top, color: EasySitColors.secondaryText),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedFloorId = value;
+                        });
+                      },
+                      hint: const Text('Select Floor', style: TextStyle(color: EasySitColors.secondaryText)),
+                    );
+                  },
+                ),
+                const SizedBox(height: 15),
+                TextField(
+                  controller: _roomNameController,
+                  decoration: _buildEasySitInputDecoration(
+                    labelText: 'Room Name (e.g. Room 101)',
+                    prefixIcon: const Icon(Icons.door_front_door, color: EasySitColors.secondaryText),
                   ),
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: _roomNameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Room Name (e.g. Room 101)',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  ElevatedButton(
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 48,
+                  child: ElevatedButton(
                     onPressed: _isLoading ? null : _addRoom,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
+                      backgroundColor: EasySitColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
                     ),
                     child: _isLoading
                         ? const Center(
@@ -908,23 +1679,37 @@ class _ManageRoomsScreenState extends State<ManageRoomsScreen> {
                           )
                         : const Text(
                             'Add Room',
-                            style: TextStyle(color: Colors.white),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 20),
           const Text(
             'Room List',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+              color: EasySitColors.mainText,
+            ),
           ),
           const SizedBox(height: 10),
           _selectedFloorId == null
               ? const Center(
-                  child: Text('Select a building and floor to see rooms'),
+                  child: Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: Text(
+                      'Select a building and floor to see rooms',
+                      style: TextStyle(color: EasySitColors.secondaryText),
+                    ),
+                  ),
                 )
               : StreamBuilder<QuerySnapshot>(
                   stream: _firestore
@@ -932,47 +1717,77 @@ class _ManageRoomsScreenState extends State<ManageRoomsScreen> {
                       .where('floorId', isEqualTo: _selectedFloorId)
                       .snapshots(),
                   builder: (context, snapshot) {
-                    if (snapshot.hasError)
+                    if (snapshot.hasError) {
                       return Center(
-                        child: Text('Error: ${snapshot.error}'),
+                        child: Text(
+                          'Error: ${snapshot.error}',
+                          style: const TextStyle(color: EasySitColors.errorFg),
+                        ),
                       );
-                    if (snapshot.connectionState == ConnectionState.waiting)
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                          return const Center(
-                            child: Text('No rooms added yet.'),
-                          );
-                        }
-                        return ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: snapshot.data!.docs.length,
-                          itemBuilder: (context, index) {
-                            var doc = snapshot.data!.docs[index];
-                            var data = doc.data() as Map<String, dynamic>;
-                            return Card(
-                              margin: const EdgeInsets.symmetric(vertical: 4),
-                              child: ListTile(
-                                leading: const Icon(
-                                  Icons.door_front_door,
-                                  color: Colors.blue,
-                                ),
-                                title: Text(data['name'] ?? 'Unnamed'),
-                                trailing: IconButton(
-                                  icon: const Icon(
-                                    Icons.delete,
-                                    color: Colors.red,
-                                  ),
-                                  onPressed: () => _deleteRoom(doc.id),
-                                ),
+                    }
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: CircularProgressIndicator(color: EasySitColors.primary),
+                      );
+                    }
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(20.0),
+                          child: Text(
+                            'No rooms added yet.',
+                            style: TextStyle(color: EasySitColors.secondaryText),
+                          ),
+                        ),
+                      );
+                    }
+                    return ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: snapshot.data!.docs.length,
+                      itemBuilder: (context, index) {
+                        var doc = snapshot.data!.docs[index];
+                        var data = doc.data() as Map<String, dynamic>;
+                        return Container(
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          decoration: BoxDecoration(
+                            color: EasySitColors.surface,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: EasySitColors.divider),
+                          ),
+                          child: ListTile(
+                            leading: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: EasySitColors.primaryTint,
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                            );
-                          },
+                              child: const Icon(
+                                Icons.door_front_door,
+                                color: EasySitColors.primary,
+                              ),
+                            ),
+                            title: Text(
+                              data['name'] ?? 'Unnamed',
+                              style: const TextStyle(
+                                color: EasySitColors.mainText,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: EasySitColors.errorFg,
+                              ),
+                              onPressed: () => _deleteRoom(doc.id),
+                              tooltip: 'Delete Room',
+                            ),
+                          ),
                         );
                       },
-                    ),
+                    );
+                  },
+                ),
         ],
       ),
     );
@@ -980,7 +1795,7 @@ class _ManageRoomsScreenState extends State<ManageRoomsScreen> {
 }
 
 // ============================================================
-// 4. MANAGE SEATS & QR SCREEN (Fixed)
+// 4. MANAGE SEATS & QR SCREEN
 // ============================================================
 class ManageSeatsScreen extends StatefulWidget {
   const ManageSeatsScreen({super.key});
@@ -999,7 +1814,7 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
   final Set<String> _downloadingSeats = {};
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // ✅ QR Code Image Generation Function
+  // QR Code Image Generation Function
   Future<Uint8List?> _generateQrImageBytes(String data) async {
     try {
       final qrCode = QrCode.fromData(
@@ -1031,12 +1846,12 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
       final jpgBytes = im.encodeJpg(img, quality: 90);
       return Uint8List.fromList(jpgBytes);
     } catch (e) {
-      print('❌ QR Generation Error: $e');
+      debugPrint('❌ QR Generation Error: $e');
       return null;
     }
   }
 
-  // ✅ PDF Download Function (direct save to Downloads)
+  // PDF Download Function
   Future<void> _downloadPdf(Uint8List bytes, String filename) async {
     try {
       if (Platform.isAndroid) {
@@ -1053,7 +1868,10 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('PDF saved to Downloads!'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('PDF saved to Downloads!'),
+            backgroundColor: EasySitColors.successFg,
+          ),
         );
       }
     } catch (e) {
@@ -1062,7 +1880,10 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
       } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+            SnackBar(
+              content: Text('Error: $e'),
+              backgroundColor: EasySitColors.errorFg,
+            ),
           );
         }
       }
@@ -1139,14 +1960,17 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('$count seats added!'),
-            backgroundColor: Colors.green,
+            backgroundColor: EasySitColors.successFg,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: EasySitColors.errorFg,
+          ),
         );
       }
     }
@@ -1182,14 +2006,17 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Seat added!'),
-            backgroundColor: Colors.green,
+            backgroundColor: EasySitColors.successFg,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: EasySitColors.errorFg,
+          ),
         );
       }
     }
@@ -1201,17 +2028,19 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Delete Seat'),
-            content: const Text('Are you sure?'),
+            backgroundColor: EasySitColors.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            title: const Text('Delete Seat', style: TextStyle(color: EasySitColors.mainText, fontWeight: FontWeight.bold)),
+            content: const Text('Are you sure?', style: TextStyle(color: EasySitColors.bodyText)),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
+                child: const Text('Cancel', style: TextStyle(color: EasySitColors.secondaryText)),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Delete'),
+                style: TextButton.styleFrom(foregroundColor: EasySitColors.errorFg),
+                child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -1224,20 +2053,23 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Seat deleted!'),
-            backgroundColor: Colors.green,
+            backgroundColor: EasySitColors.successFg,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: EasySitColors.errorFg,
+          ),
         );
       }
     }
   }
 
-  // ✅ All QR Codes PDF - at least 8 QRs per page with heading
+  // All QR Codes PDF
   Future<void> _printAllQrs() async {
     if (_selectedRoomId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1249,7 +2081,6 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Fetch building, floor, room names
       String buildingName = 'Unknown';
       String floorName = 'Unknown';
       String roomName = 'Unknown';
@@ -1292,13 +2123,11 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
 
       final pdfDoc = pw.Document();
 
-      // Grid layout: 4 columns, at least 8 QRs per page
       const int cols = 4;
       const double qrImageSize = 100.0;
-      const double cellHeight = 140.0; // QR(100) + space(8) + text(20) + padding
+      const double cellHeight = 140.0;
       const double rowSpacing = 15.0;
 
-      // Generate all cells first
       List<pw.Widget> allCells = [];
 
       for (int i = 0; i < sortedDocs.length; i++) {
@@ -1338,14 +2167,12 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
         );
       }
 
-      // Calculate rows per page (at least 2 rows = 8 QRs minimum)
-      const double usablePageHeight = 801.89; // A4 height - 40 margins
+      const double usablePageHeight = 801.89;
       const double headerHeight = 70.0;
       int rowsPerPage = ((usablePageHeight - headerHeight) / (cellHeight + rowSpacing)).floor();
       if (rowsPerPage < 2) rowsPerPage = 2;
       int itemsPerPage = cols * rowsPerPage;
 
-      // Add pages
       for (int start = 0; start < allCells.length; start += itemsPerPage) {
         int end = (start + itemsPerPage > allCells.length) ? allCells.length : start + itemsPerPage;
         var pageCells = allCells.sublist(start, end);
@@ -1398,17 +2225,20 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
       final pdfBytes = await pdfDoc.save();
       await _downloadPdf(pdfBytes, 'seats_qr_codes.pdf');
     } catch (e) {
-      print('❌ PDF Error: $e');
+      debugPrint('❌ PDF Error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: EasySitColors.errorFg,
+          ),
         );
       }
     }
     setState(() => _isLoading = false);
   }
 
-  // ✅ Single Seat QR PDF
+  // Single Seat QR PDF
   Future<void> _printSingleQr(
     String seatId,
     String seatNumber,
@@ -1482,19 +2312,49 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Seat $seatNumber QR saved!'),
-            backgroundColor: Colors.green,
+            backgroundColor: EasySitColors.successFg,
           ),
         );
       }
     } catch (e) {
-      print('❌ Single QR Error: $e');
+      debugPrint('❌ Single QR Error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: EasySitColors.errorFg,
+          ),
         );
       }
     }
     setState(() => _downloadingSeats.remove(seatId));
+  }
+
+  // Seat Legend Helper Widget
+  Widget _buildSeatLegendItem(String label, Color bg, Color border, Color text, IconData icon) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: border),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 14, color: text),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(color: text, fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -1505,419 +2365,498 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
         children: [
           const Text(
             'Manage Seats & QR',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 20),
-          Card(
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Building Dropdown
-                  SizedBox(
-                    width: 300,
-                    child: StreamBuilder<QuerySnapshot>(
-                      stream: _firestore.collection('buildings').snapshots(),
-                      builder: (context, snapshot) {
-                        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                          return DropdownButtonFormField<String>(
-                            value: null,
-                            items: [],
-                            hint: const Text('No Buildings'),
-                            onChanged: null,
-                            decoration: const InputDecoration(
-                              labelText: 'Building',
-                              border: OutlineInputBorder(),
-                            ),
-                          );
-                        }
-                        var items =
-                            snapshot.data!.docs.map((doc) {
-                              var data = doc.data() as Map<String, dynamic>;
-                              return DropdownMenuItem<String>(
-                                value: doc.id,
-                                child: Text(data['name'] ?? 'Unnamed'),
-                              );
-                            }).toList();
-                        return DropdownButtonFormField<String>(
-                          value: _selectedBuildingId,
-                          items: items,
-                          decoration: const InputDecoration(
-                            labelText: 'Building',
-                            border: OutlineInputBorder(),
-                          ),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedBuildingId = value;
-                              _selectedFloorId = null;
-                              _selectedRoomId = null;
-                            });
-                          },
-                          hint: const Text('Select Building'),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  // Floor Dropdown
-                  SizedBox(
-                    width: 300,
-                    child: StreamBuilder<QuerySnapshot>(
-                      stream: _getFloors(),
-                      builder: (context, snapshot) {
-                        if (_selectedBuildingId == null) {
-                          return DropdownButtonFormField<String>(
-                            value: null,
-                            items: [],
-                            hint: const Text('Select Building first'),
-                            onChanged: null,
-                            decoration: const InputDecoration(
-                              labelText: 'Floor',
-                              border: OutlineInputBorder(),
-                            ),
-                          );
-                        }
-                        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                          return DropdownButtonFormField<String>(
-                            value: null,
-                            items: [],
-                            hint: const Text('No Floors'),
-                            onChanged: null,
-                            decoration: const InputDecoration(
-                              labelText: 'Floor',
-                              border: OutlineInputBorder(),
-                            ),
-                          );
-                        }
-                        var items =
-                            snapshot.data!.docs.map((doc) {
-                              var data = doc.data() as Map<String, dynamic>;
-                              return DropdownMenuItem<String>(
-                                value: doc.id,
-                                child: Text(data['name'] ?? 'Unnamed'),
-                              );
-                            }).toList();
-                        return DropdownButtonFormField<String>(
-                          value: _selectedFloorId,
-                          items: items,
-                          decoration: const InputDecoration(
-                            labelText: 'Floor',
-                            border: OutlineInputBorder(),
-                          ),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedFloorId = value;
-                              _selectedRoomId = null;
-                            });
-                          },
-                          hint: const Text('Select Floor'),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  // Room Dropdown
-                  SizedBox(
-                    width: 300,
-                    child: StreamBuilder<QuerySnapshot>(
-                      stream: _getRooms(),
-                      builder: (context, snapshot) {
-                        if (_selectedFloorId == null) {
-                          return DropdownButtonFormField<String>(
-                            value: null,
-                            items: [],
-                            hint: const Text('Select Floor first'),
-                            onChanged: null,
-                            decoration: const InputDecoration(
-                              labelText: 'Room',
-                              border: OutlineInputBorder(),
-                            ),
-                          );
-                        }
-                        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                          return DropdownButtonFormField<String>(
-                            value: null,
-                            items: [],
-                            hint: const Text('No Rooms'),
-                            onChanged: null,
-                            decoration: const InputDecoration(
-                              labelText: 'Room',
-                              border: OutlineInputBorder(),
-                            ),
-                          );
-                        }
-                        var items =
-                            snapshot.data!.docs.map((doc) {
-                              var data = doc.data() as Map<String, dynamic>;
-                              return DropdownMenuItem<String>(
-                                value: doc.id,
-                                child: Text(data['name'] ?? 'Unnamed'),
-                              );
-                            }).toList();
-                        return DropdownButtonFormField<String>(
-                          value: _selectedRoomId,
-                          items: items,
-                          decoration: const InputDecoration(
-                            labelText: 'Room',
-                            border: OutlineInputBorder(),
-                          ),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedRoomId = value;
-                            });
-                          },
-                          hint: const Text('Select Room'),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Divider(),
-                  const SizedBox(height: 10),
-                  // Bulk Add
-                  const Text(
-                    'Bulk Add Seats',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      SizedBox(
-                        width: 120,
-                        child: TextField(
-                          controller: _bulkCountController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Seat Count',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      ElevatedButton(
-                        onPressed: _isLoading ? null : _addSeatsBulk,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                        ),
-                        child:
-                            _isLoading
-                                ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                                : const Text(
-                                  'Add Bulk',
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 15),
-                  // Single Add
-                  const Text(
-                    'Add Single Seat',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      SizedBox(
-                        width: 120,
-                        child: TextField(
-                          controller: _singleSeatController,
-                          decoration: const InputDecoration(
-                            labelText: 'Seat Number',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      ElevatedButton(
-                        onPressed: _isLoading ? null : _addSingleSeat,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                        ),
-                        child:
-                            _isLoading
-                                ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                                : const Text(
-                                  'Add',
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                      ),
-                    ],
-                  ),
-                  if (_selectedRoomId != null) ...[
-                    const SizedBox(height: 15),
-                    const Divider(),
-                    const SizedBox(height: 10),
-                    // ✅ Print All QR Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: _isLoading ? null : _printAllQrs,
-                        icon:
-                            _isLoading
-                                ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                                : const Icon(Icons.print, color: Colors.white),
-                        label: const Text(
-                          'Print / Download All QR Codes',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: EasySitColors.mainText,
             ),
           ),
-          const SizedBox(height: 20),
-          const Text(
-            'Seats',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
-          StreamBuilder<QuerySnapshot>(
-            stream: _getSeats(),
-              builder: (context, snapshot) {
-                if (_selectedRoomId == null) {
-                  return const Center(
-                    child: Text('Select a room to view seats'),
-                  );
-                }
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(
-                    child: Text('No seats in this room. Add some!'),
-                  );
-                }
-                var docs = snapshot.data!.docs;
-                docs.sort((a, b) {
-                  var aNum =
-                      int.tryParse((a.data() as Map)['seatNumber'] ?? '0') ?? 0;
-                  var bNum =
-                      int.tryParse((b.data() as Map)['seatNumber'] ?? '0') ?? 0;
-                  return aNum.compareTo(bNum);
-                });
-                return GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    childAspectRatio: 0.85,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                  ),
-                  itemCount: docs.length,
-                  itemBuilder: (context, index) {
-                    var doc = docs[index];
-                    var data = doc.data() as Map<String, dynamic>;
-                    String seatNumber = data['seatNumber'] ?? '?';
-                    String status = data['status'] ?? 'available';
-                    String qrData = data['qrData'] ?? 'SEAT:${doc.id}';
-                    MaterialColor seatColor =
-                        status == 'booked'
-                            ? Colors.red
-                            : status == 'pending'
-                            ? Colors.orange
-                            : Colors.green;
-                    return Card(
-                      elevation: 2,
-                      color: seatColor.shade100,
-                      child: Stack(
-                        children: [
-                          Center(
+          const SizedBox(height: 16),
+          _buildEasySitCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Building Dropdown
+                StreamBuilder<QuerySnapshot>(
+                  stream: _firestore.collection('buildings').snapshots(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return DropdownButtonFormField<String>(
+                        value: null,
+                        items: const [],
+                        hint: const Text('No Buildings'),
+                        onChanged: null,
+                        decoration: _buildEasySitInputDecoration(
+                          labelText: 'Building',
+                          prefixIcon: const Icon(Icons.business, color: EasySitColors.secondaryText),
+                        ),
+                      );
+                    }
+                    var items =
+                        snapshot.data!.docs.map((doc) {
+                          var data = doc.data() as Map<String, dynamic>;
+                          return DropdownMenuItem<String>(
+                            value: doc.id,
                             child: Text(
-                              seatNumber,
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: seatColor.shade700,
-                              ),
+                              data['name'] ?? 'Unnamed',
+                              style: const TextStyle(color: EasySitColors.mainText),
                             ),
-                          ),
-                          Positioned(
-                            right: 0,
-                            top: 0,
-                            child: GestureDetector(
-                              onTap: () => _deleteSeat(doc.id),
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                child: const Icon(
-                                  Icons.close,
-                                  size: 18,
-                                  color: Colors.red,
-                                ),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            right: 0,
-                            bottom: 0,
-                            child: GestureDetector(
-                              onTap:
-                                  _downloadingSeats.contains(doc.id)
-                                      ? null
-                                      : () => _printSingleQr(
-                                        doc.id,
-                                        seatNumber,
-                                        qrData,
-                                      ),
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                child:
-                                    _downloadingSeats.contains(doc.id)
-                                        ? const SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                        : const Icon(
-                                          Icons.qr_code,
-                                          size: 18,
-                                          color: Colors.black54,
-                                        ),
-                              ),
-                            ),
-                          ),
-                        ],
+                          );
+                        }).toList();
+                    return DropdownButtonFormField<String>(
+                      value: _selectedBuildingId,
+                      items: items,
+                      decoration: _buildEasySitInputDecoration(
+                        labelText: 'Building',
+                        prefixIcon: const Icon(Icons.business, color: EasySitColors.secondaryText),
                       ),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedBuildingId = value;
+                          _selectedFloorId = null;
+                          _selectedRoomId = null;
+                        });
+                      },
+                      hint: const Text('Select Building', style: TextStyle(color: EasySitColors.secondaryText)),
                     );
                   },
-                );
-              },
+                ),
+                const SizedBox(height: 15),
+                // Floor Dropdown
+                StreamBuilder<QuerySnapshot>(
+                  stream: _getFloors(),
+                  builder: (context, snapshot) {
+                    if (_selectedBuildingId == null) {
+                      return DropdownButtonFormField<String>(
+                        value: null,
+                        items: const [],
+                        hint: const Text('Select Building first', style: TextStyle(color: EasySitColors.secondaryText)),
+                        onChanged: null,
+                        decoration: _buildEasySitInputDecoration(
+                          labelText: 'Floor',
+                          prefixIcon: const Icon(Icons.vertical_align_top, color: EasySitColors.secondaryText),
+                        ),
+                      );
+                    }
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return DropdownButtonFormField<String>(
+                        value: null,
+                        items: const [],
+                        hint: const Text('No Floors'),
+                        onChanged: null,
+                        decoration: _buildEasySitInputDecoration(
+                          labelText: 'Floor',
+                          prefixIcon: const Icon(Icons.vertical_align_top, color: EasySitColors.secondaryText),
+                        ),
+                      );
+                    }
+                    var items =
+                        snapshot.data!.docs.map((doc) {
+                          var data = doc.data() as Map<String, dynamic>;
+                          return DropdownMenuItem<String>(
+                            value: doc.id,
+                            child: Text(
+                              data['name'] ?? 'Unnamed',
+                              style: const TextStyle(color: EasySitColors.mainText),
+                            ),
+                          );
+                        }).toList();
+                    return DropdownButtonFormField<String>(
+                      value: _selectedFloorId,
+                      items: items,
+                      decoration: _buildEasySitInputDecoration(
+                        labelText: 'Floor',
+                        prefixIcon: const Icon(Icons.vertical_align_top, color: EasySitColors.secondaryText),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedFloorId = value;
+                          _selectedRoomId = null;
+                        });
+                      },
+                      hint: const Text('Select Floor', style: TextStyle(color: EasySitColors.secondaryText)),
+                    );
+                  },
+                ),
+                const SizedBox(height: 15),
+                // Room Dropdown
+                StreamBuilder<QuerySnapshot>(
+                  stream: _getRooms(),
+                  builder: (context, snapshot) {
+                    if (_selectedFloorId == null) {
+                      return DropdownButtonFormField<String>(
+                        value: null,
+                        items: const [],
+                        hint: const Text('Select Floor first', style: TextStyle(color: EasySitColors.secondaryText)),
+                        onChanged: null,
+                        decoration: _buildEasySitInputDecoration(
+                          labelText: 'Room',
+                          prefixIcon: const Icon(Icons.door_front_door, color: EasySitColors.secondaryText),
+                        ),
+                      );
+                    }
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return DropdownButtonFormField<String>(
+                        value: null,
+                        items: const [],
+                        hint: const Text('No Rooms'),
+                        onChanged: null,
+                        decoration: _buildEasySitInputDecoration(
+                          labelText: 'Room',
+                          prefixIcon: const Icon(Icons.door_front_door, color: EasySitColors.secondaryText),
+                        ),
+                      );
+                    }
+                    var items =
+                        snapshot.data!.docs.map((doc) {
+                          var data = doc.data() as Map<String, dynamic>;
+                          return DropdownMenuItem<String>(
+                            value: doc.id,
+                            child: Text(
+                              data['name'] ?? 'Unnamed',
+                              style: const TextStyle(color: EasySitColors.mainText),
+                            ),
+                          );
+                        }).toList();
+                    return DropdownButtonFormField<String>(
+                      value: _selectedRoomId,
+                      items: items,
+                      decoration: _buildEasySitInputDecoration(
+                        labelText: 'Room',
+                        prefixIcon: const Icon(Icons.door_front_door, color: EasySitColors.secondaryText),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedRoomId = value;
+                        });
+                      },
+                      hint: const Text('Select Room', style: TextStyle(color: EasySitColors.secondaryText)),
+                    );
+                  },
+                ),
+                const SizedBox(height: 20),
+                const Divider(color: EasySitColors.divider),
+                const SizedBox(height: 10),
+                // Bulk Add
+                const Text(
+                  'Bulk Add Seats',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: EasySitColors.mainText,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 140,
+                      child: TextField(
+                        controller: _bulkCountController,
+                        keyboardType: TextInputType.number,
+                        decoration: _buildEasySitInputDecoration(
+                          labelText: 'Seat Count',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: _isLoading ? null : _addSeatsBulk,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: EasySitColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              'Add Bulk',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                // Single Add
+                const Text(
+                  'Add Single Seat',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: EasySitColors.mainText,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 140,
+                      child: TextField(
+                        controller: _singleSeatController,
+                        decoration: _buildEasySitInputDecoration(
+                          labelText: 'Seat Number',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: _isLoading ? null : _addSingleSeat,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: EasySitColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              'Add',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                    ),
+                  ],
+                ),
+                if (_selectedRoomId != null) ...[
+                  const SizedBox(height: 18),
+                  const Divider(color: EasySitColors.divider),
+                  const SizedBox(height: 10),
+                  // Print All QR Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      onPressed: _isLoading ? null : _printAllQrs,
+                      icon: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(Icons.print, color: Colors.white),
+                      label: const Text(
+                        'Print / Download All QR Codes',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: EasySitColors.successFg,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: const [
+              Text(
+                'Seats Map',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: EasySitColors.mainText,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Seat Legend Guidelines Display
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildSeatLegendItem('Available', EasySitColors.successBg, EasySitColors.successBorder, EasySitColors.successFg, Icons.event_seat),
+                const SizedBox(width: 8),
+                _buildSeatLegendItem('Occupied', EasySitColors.bookedBg, EasySitColors.divider, EasySitColors.bookedFg, Icons.lock),
+                const SizedBox(width: 8),
+                _buildSeatLegendItem('Pending', EasySitColors.warningBg, EasySitColors.warningBorder, EasySitColors.warningFg, Icons.access_time),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          StreamBuilder<QuerySnapshot>(
+            stream: _getSeats(),
+            builder: (context, snapshot) {
+              if (_selectedRoomId == null) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: Text(
+                      'Select a room to view seats',
+                      style: TextStyle(color: EasySitColors.secondaryText),
+                    ),
+                  ),
+                );
+              }
+              if (snapshot.hasError) {
+                return Center(
+                  child: Text(
+                    'Error: ${snapshot.error}',
+                    style: const TextStyle(color: EasySitColors.errorFg),
+                  ),
+                );
+              }
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: CircularProgressIndicator(color: EasySitColors.primary),
+                );
+              }
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: Text(
+                      'No seats in this room. Add some!',
+                      style: TextStyle(color: EasySitColors.secondaryText),
+                    ),
+                  ),
+                );
+              }
+              var docs = snapshot.data!.docs;
+              docs.sort((a, b) {
+                var aNum =
+                    int.tryParse((a.data() as Map)['seatNumber'] ?? '0') ?? 0;
+                var bNum =
+                    int.tryParse((b.data() as Map)['seatNumber'] ?? '0') ?? 0;
+                return aNum.compareTo(bNum);
+              });
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  childAspectRatio: 0.85,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                ),
+                itemCount: docs.length,
+                itemBuilder: (context, index) {
+                  var doc = docs[index];
+                  var data = doc.data() as Map<String, dynamic>;
+                  String seatNumber = data['seatNumber'] ?? '?';
+                  String status = data['status'] ?? 'available';
+                  String qrData = data['qrData'] ?? 'SEAT:${doc.id}';
+
+                  // Map to exact guidelines colours
+                  Color cardBg = EasySitColors.successBg;
+                  Color textColor = EasySitColors.successFg;
+                  Color borderColor = EasySitColors.successBorder;
+
+                  if (status == 'booked') {
+                    cardBg = EasySitColors.bookedBg;
+                    textColor = EasySitColors.bookedFg;
+                    borderColor = EasySitColors.divider;
+                  } else if (status == 'pending') {
+                    cardBg = EasySitColors.warningBg;
+                    textColor = EasySitColors.warningFg;
+                    borderColor = EasySitColors.warningBorder;
+                  }
+
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: cardBg,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: borderColor, width: 1.5),
+                    ),
+                    child: Stack(
+                      children: [
+                        Center(
+                          child: Text(
+                            seatNumber,
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: textColor,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          right: 2,
+                          top: 2,
+                          child: GestureDetector(
+                            onTap: () => _deleteSeat(doc.id),
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              child: const Icon(
+                                Icons.close,
+                                size: 16,
+                                color: EasySitColors.errorFg,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          right: 2,
+                          bottom: 2,
+                          child: GestureDetector(
+                            onTap:
+                                _downloadingSeats.contains(doc.id)
+                                    ? null
+                                    : () => _printSingleQr(
+                                      doc.id,
+                                      seatNumber,
+                                      qrData,
+                                    ),
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              child:
+                                  _downloadingSeats.contains(doc.id)
+                                      ? const SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: EasySitColors.primary,
+                                        ),
+                                      )
+                                      : Icon(
+                                        Icons.qr_code,
+                                        size: 16,
+                                        color: textColor.withValues(alpha: 0.7),
+                                      ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+          ),
         ],
       ),
     );
@@ -1932,7 +2871,7 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
 }
 
 // ============================================================
-// 6. SEND NOTIFICATION SCREEN
+// 5. SEND NOTIFICATION SCREEN
 // ============================================================
 class SendNotificationScreen extends StatefulWidget {
   const SendNotificationScreen({super.key});
@@ -1975,14 +2914,17 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Notification sent to all students!'),
-            backgroundColor: Colors.green,
+            backgroundColor: EasySitColors.successFg,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: EasySitColors.errorFg,
+          ),
         );
       }
     }
@@ -1994,13 +2936,19 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
       await _firestore.collection('notifications').doc(docId).delete();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Notification deleted.'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Notification deleted.'),
+            backgroundColor: EasySitColors.successFg,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error deleting: $e'),
+            backgroundColor: EasySitColors.errorFg,
+          ),
         );
       }
     }
@@ -2021,153 +2969,186 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
         children: [
           const Text(
             'Send Notification to All Students',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'This notification will appear for all students in real-time.',
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-          ),
-          const SizedBox(height: 24),
-          Card(
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: _titleController,
-                    decoration: const InputDecoration(
-                      labelText: 'Notification Title',
-                      hintText: 'e.g. Library Closure Notice',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.title),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _messageController,
-                    maxLines: 5,
-                    decoration: const InputDecoration(
-                      labelText: 'Notification Message',
-                      hintText: 'Type your message here...',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.message),
-                      alignLabelWithHint: true,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton.icon(
-                      onPressed: _isSending ? null : _sendNotification,
-                      icon: _isSending
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.send, color: Colors.white),
-                      label: Text(
-                        _isSending ? 'Sending...' : 'Send to All Students',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.white,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: EasySitColors.mainText,
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 6),
+          const Text(
+            'This notification will appear for all students in real-time.',
+            style: TextStyle(fontSize: 13, color: EasySitColors.secondaryText),
+          ),
+          const SizedBox(height: 18),
+          _buildEasySitCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: _titleController,
+                  decoration: _buildEasySitInputDecoration(
+                    labelText: 'Notification Title',
+                    hintText: 'e.g. Library Closure Notice',
+                    prefixIcon: const Icon(Icons.title, color: EasySitColors.secondaryText),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _messageController,
+                  maxLines: 4,
+                  decoration: _buildEasySitInputDecoration(
+                    labelText: 'Notification Message',
+                    hintText: 'Type your message here...',
+                    prefixIcon: const Icon(Icons.message, color: EasySitColors.secondaryText),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: _isSending ? null : _sendNotification,
+                    icon: _isSending
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.send, color: Colors.white, size: 18),
+                    label: Text(
+                      _isSending ? 'Sending...' : 'Send to All Students',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: EasySitColors.primary,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
           const Text(
             'Sent Notifications',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+              color: EasySitColors.mainText,
+            ),
           ),
           const SizedBox(height: 10),
           StreamBuilder<QuerySnapshot>(
             stream:
-                  _firestore
-                      .collection('notifications')
-                      .orderBy('timestamp', descending: true)
-                      .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Text('Error: ${snapshot.error}'),
-                  );
-                }
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(
-                    child: Text('No notifications sent yet.'),
-                  );
-                }
-                return ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: snapshot.data!.docs.length,
-                  itemBuilder: (context, index) {
-                    var doc = snapshot.data!.docs[index];
-                    var data = doc.data() as Map<String, dynamic>;
-                    Timestamp? ts = data['timestamp'] as Timestamp?;
-                    String timeStr = '';
-                    if (ts != null) {
-                      DateTime dt = ts.toDate();
-                      timeStr =
-                          '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
-                          '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-                    }
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      child: ListTile(
-                        leading: const CircleAvatar(
-                          backgroundColor: Colors.blue,
-                          child: Icon(Icons.notifications, color: Colors.white),
+                _firestore
+                    .collection('notifications')
+                    .orderBy('timestamp', descending: true)
+                    .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Center(
+                  child: Text(
+                    'Error: ${snapshot.error}',
+                    style: const TextStyle(color: EasySitColors.errorFg),
+                  ),
+                );
+              }
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: CircularProgressIndicator(color: EasySitColors.primary),
+                );
+              }
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: Text(
+                      'No notifications sent yet.',
+                      style: TextStyle(color: EasySitColors.secondaryText),
+                    ),
+                  ),
+                );
+              }
+              return ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: snapshot.data!.docs.length,
+                itemBuilder: (context, index) {
+                  var doc = snapshot.data!.docs[index];
+                  var data = doc.data() as Map<String, dynamic>;
+                  Timestamp? ts = data['timestamp'] as Timestamp?;
+                  String timeStr = '';
+                  if (ts != null) {
+                    DateTime dt = ts.toDate();
+                    timeStr =
+                        '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
+                        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+                  }
+                  return Container(
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    decoration: BoxDecoration(
+                      color: EasySitColors.surface,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: EasySitColors.divider),
+                    ),
+                    child: ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: EasySitColors.primaryTint,
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        title: Text(
-                          data['title'] ?? 'No Title',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(data['message'] ?? ''),
-                            if (timeStr.isNotEmpty)
-                              Text(
-                                timeStr,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey.shade500,
-                                ),
-                              ),
-                          ],
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _deleteNotification(doc.id),
+                        child: const Icon(Icons.notifications, color: EasySitColors.primary),
+                      ),
+                      title: Text(
+                        data['title'] ?? 'No Title',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: EasySitColors.mainText,
                         ),
                       ),
-                    );
-                  },
-                );
-              },
-            ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 2),
+                          Text(
+                            data['message'] ?? '',
+                            style: const TextStyle(color: EasySitColors.bodyText),
+                          ),
+                          if (timeStr.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              timeStr,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: EasySitColors.secondaryText,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline, color: EasySitColors.errorFg),
+                        onPressed: () => _deleteNotification(doc.id),
+                        tooltip: 'Delete Notification',
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
         ],
       ),
     );
@@ -2175,7 +3156,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
 }
 
 // ============================================================
-// 7. STUDENT BEHAVIOR SCREEN
+// 6. STUDENT BEHAVIOR SCREEN
 // ============================================================
 class StudentBehaviorScreen extends StatefulWidget {
   const StudentBehaviorScreen({super.key});
@@ -2197,14 +3178,17 @@ class _StudentBehaviorScreenState extends State<StudentBehaviorScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(!currentStatus ? 'Student blocked successfully.' : 'Student unblocked successfully.'),
-            backgroundColor: !currentStatus ? Colors.orange : Colors.green,
+            backgroundColor: !currentStatus ? EasySitColors.warningFg : EasySitColors.successFg,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating status: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error updating status: $e'),
+            backgroundColor: EasySitColors.errorFg,
+          ),
         );
       }
     }
@@ -2219,23 +3203,22 @@ class _StudentBehaviorScreenState extends State<StudentBehaviorScreen> {
         children: [
           const Text(
             'Student Behavior',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: EasySitColors.mainText,
+            ),
           ),
-          const SizedBox(height: 8),
-          Text(
+          const SizedBox(height: 6),
+          const Text(
             'Manage student access to the application.',
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 13, color: EasySitColors.secondaryText),
           ),
           const SizedBox(height: 16),
           TextField(
-            decoration: InputDecoration(
+            decoration: _buildEasySitInputDecoration(
               labelText: 'Search by Name, Email, or ID',
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              filled: true,
-              fillColor: Colors.grey.shade50,
+              prefixIcon: const Icon(Icons.search, color: EasySitColors.secondaryText),
             ),
             onChanged: (value) {
               setState(() {
@@ -2252,13 +3235,25 @@ class _StudentBehaviorScreenState extends State<StudentBehaviorScreen> {
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
+                  return Center(
+                    child: Text(
+                      'Error: ${snapshot.error}',
+                      style: const TextStyle(color: EasySitColors.errorFg),
+                    ),
+                  );
                 }
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Center(
+                    child: CircularProgressIndicator(color: EasySitColors.primary),
+                  );
                 }
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text('No students found.'));
+                  return const Center(
+                    child: Text(
+                      'No students found.',
+                      style: TextStyle(color: EasySitColors.secondaryText),
+                    ),
+                  );
                 }
 
                 var docs = snapshot.data!.docs.toList();
@@ -2275,7 +3270,12 @@ class _StudentBehaviorScreenState extends State<StudentBehaviorScreen> {
                 }
 
                 if (docs.isEmpty) {
-                  return const Center(child: Text('No matching students found.'));
+                  return const Center(
+                    child: Text(
+                      'No matching students found.',
+                      style: TextStyle(color: EasySitColors.secondaryText),
+                    ),
+                  );
                 }
 
                 return ListView.builder(
@@ -2288,33 +3288,62 @@ class _StudentBehaviorScreenState extends State<StudentBehaviorScreen> {
                     String studentId = data['studentId'] ?? 'Unknown ID';
                     String email = data['email'] ?? 'No email';
 
-                    return Card(
-                      elevation: 2,
-                      margin: const EdgeInsets.symmetric(vertical: 6),
+                    return Container(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      decoration: BoxDecoration(
+                        color: EasySitColors.surface,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: EasySitColors.divider),
+                      ),
                       child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: isBlocked ? Colors.red.shade100 : Colors.blue.shade100,
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: isBlocked ? EasySitColors.errorBg : EasySitColors.primaryTint,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                           child: Icon(
                             isBlocked ? Icons.block : Icons.person,
-                            color: isBlocked ? Colors.red : Colors.blue,
+                            color: isBlocked ? EasySitColors.errorFg : EasySitColors.primary,
                           ),
                         ),
-                        title: Text(fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('$studentId • $email'),
+                        title: Text(
+                          fullName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: EasySitColors.mainText,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '$studentId • $email',
+                          style: const TextStyle(color: EasySitColors.secondaryText, fontSize: 12),
+                        ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              isBlocked ? 'Blocked' : 'Active',
-                              style: TextStyle(
-                                color: isBlocked ? Colors.red : Colors.green,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
+                            // Student access status badge per guidelines
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: isBlocked ? EasySitColors.errorBg : EasySitColors.successBg,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isBlocked ? EasySitColors.errorBorder : EasySitColors.successBorder,
+                                ),
+                              ),
+                              child: Text(
+                                isBlocked ? 'Blocked' : 'Active',
+                                style: TextStyle(
+                                  color: isBlocked ? EasySitColors.errorFg : EasySitColors.successFg,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
+                            const SizedBox(width: 8),
                             Switch(
                               value: isBlocked,
-                              activeColor: Colors.red,
+                              activeColor: EasySitColors.errorFg,
                               onChanged: (value) => _toggleBlockStatus(doc.id, isBlocked),
                             ),
                           ],
