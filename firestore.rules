@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function: Check if caller is logged in
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // ----------------------------------------------------
+    // Users Collection
+    // ----------------------------------------------------
+    match /users/{userId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ----------------------------------------------------
+    // Library Infrastructure: Buildings, Floors, Rooms
+    // ----------------------------------------------------
+    match /buildings/{buildingId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /floors/{floorId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /rooms/{roomId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ----------------------------------------------------
+    // Seats Collection
+    // ----------------------------------------------------
+    match /seats/{seatId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ----------------------------------------------------
+    // Notifications Collection
+    // Allows admin broadcast ('all') and user-targeted notifications
+    // ----------------------------------------------------
+    match /notifications/{notificationId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ----------------------------------------------------
+    // Catch-All: Block any undefined collections or unauthenticated traffic
+    // ----------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
