@@ -7,8 +7,10 @@ import 'session_screen.dart';
 import 'student_home_screen.dart';
 import 'profile_screen.dart';
 import '../widgets/app_bottom_nav.dart';
+import '../widgets/swipe_navigation_wrapper.dart';
 import '../utils/app_page_route.dart';
 import '../widgets/notification_bell_button.dart';
+import '../services/seat_expiry_service.dart';
 
 class SeatBookingScreen extends StatefulWidget {
   final String roomId;
@@ -32,6 +34,27 @@ class SeatBookingScreen extends StatefulWidget {
 
 class _SeatBookingScreenState extends State<SeatBookingScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  late final Stream<QuerySnapshot> _seatStream;
+  Timer? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _seatStream = _firestore
+        .collection('seats')
+        .where('roomId', isEqualTo: widget.roomId)
+        .snapshots();
+    // Real-time ticker to immediately update seat status the instant a booking expires
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
 
   Future<bool> _hasExistingBooking(String uid) async {
     QuerySnapshot pending =
@@ -40,14 +63,34 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
             .where('pendingBy', isEqualTo: uid)
             .limit(1)
             .get();
-    if (pending.docs.isNotEmpty) return true;
+    if (pending.docs.isNotEmpty) {
+      final pData = pending.docs.first.data() as Map<String, dynamic>;
+      if (SeatExpiryService.isSeatExpired(pData)) {
+        await SeatExpiryService.releaseExpiredSeatIfNeeded(
+          pending.docs.first.id,
+          pData,
+        );
+      } else {
+        return true;
+      }
+    }
     QuerySnapshot booked =
         await _firestore
             .collection('seats')
             .where('bookedBy', isEqualTo: uid)
             .limit(1)
             .get();
-    if (booked.docs.isNotEmpty) return true;
+    if (booked.docs.isNotEmpty) {
+      final bData = booked.docs.first.data() as Map<String, dynamic>;
+      if (SeatExpiryService.isSeatExpired(bData)) {
+        await SeatExpiryService.releaseExpiredSeatIfNeeded(
+          booked.docs.first.id,
+          bData,
+        );
+      } else {
+        return true;
+      }
+    }
     return false;
   }
 
@@ -355,6 +398,8 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
         'pendingAt': Timestamp.fromDate(DateTime.now()),
         'buildingName': widget.buildingName,
         'roomName': widget.roomName,
+        'bookedBy': FieldValue.delete(),
+        'bookedAt': FieldValue.delete(),
       });
 
       if (mounted) {
@@ -560,7 +605,20 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
           );
         }
       },
-      child: Scaffold(
+      child: SwipeNavigationWrapper(
+        enableSwipeBack: true,
+        onSwipeBack: () {
+          if (Navigator.canPop(context)) {
+            Navigator.pop(context);
+          } else {
+            Navigator.pushAndRemoveUntil(
+              context,
+              AppPageRoute(builder: (_) => const StudentHomeScreen()),
+              (route) => false,
+            );
+          }
+        },
+        child: Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
@@ -606,13 +664,10 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                   ),
                 ),
                 child: StreamBuilder<QuerySnapshot>(
-                  stream:
-                      _firestore
-                          .collection('seats')
-                          .where('roomId', isEqualTo: widget.roomId)
-                          .snapshots(),
+                  stream: _seatStream,
                   builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
+                    if (snapshot.connectionState == ConnectionState.waiting &&
+                        !snapshot.hasData) {
                       return const Center(child: CircularProgressIndicator());
                     }
                     if (snapshot.hasError) {
@@ -696,6 +751,15 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                                 User? user = FirebaseAuth.instance.currentUser;
                                 String myUid = user?.uid ?? '';
 
+                                // Dynamic real-time expiration check
+                                bool isExpired = SeatExpiryService.isSeatExpired(seatData);
+                                String effectiveStatus = isExpired ? 'available' : status;
+                                if (isExpired) {
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    SeatExpiryService.releaseExpiredSeatIfNeeded(seatId, seatData);
+                                  });
+                                }
+
                                 Color bgColor;
                                 Color borderColor;
                                 Color iconColor;
@@ -703,35 +767,36 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                                 bool isMine = false;
                                 VoidCallback? onTap;
 
-                                if (status == 'available') {
+                                if (effectiveStatus == 'available') {
                                   bgColor = Colors.green.shade50;
                                   borderColor = Colors.green.shade400;
                                   iconColor = Colors.green.shade600;
                                   textColor = Colors.green.shade800;
                                   onTap =
                                       () => _reserveSeat(seatId, seatNumber);
-                                } else if (status == 'pending') {
+                                } else if (effectiveStatus == 'pending') {
                                   isMine = pendingBy == myUid;
-                                  bgColor =
-                                      isMine
-                                          ? Colors.amber.shade50
-                                          : Colors.grey.shade100;
-                                  borderColor =
-                                      isMine
-                                          ? Colors.amber.shade400
-                                          : Colors.grey.shade400;
-                                  iconColor =
-                                      isMine
-                                          ? Colors.amber.shade600
-                                          : Colors.grey;
-                                  textColor =
-                                      isMine
-                                          ? Colors.amber.shade800
-                                          : Colors.grey.shade600;
+                                  bgColor = Colors.amber.shade50;
+                                  borderColor = Colors.amber.shade400;
+                                  iconColor = Colors.amber.shade700;
+                                  textColor = Colors.amber.shade900;
                                   if (isMine) {
                                     onTap =
                                         () =>
                                             _cancelPending(seatId, seatNumber);
+                                  } else {
+                                    onTap = () {
+                                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Seat $seatNumber is currently pending confirmation by another student.',
+                                          ),
+                                          backgroundColor: const Color(0xFFD97706),
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                    };
                                   }
                                 } else {
                                   isMine = bookedBy == myUid;
@@ -781,7 +846,9 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                                         Icon(
                                           isMine
                                               ? Icons.person
-                                              : Icons.event_seat,
+                                              : (effectiveStatus == 'pending'
+                                                  ? Icons.hourglass_top_rounded
+                                                  : Icons.event_seat),
                                           size: 26,
                                           color: iconColor,
                                         ),
@@ -794,7 +861,7 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                                             color: textColor,
                                           ),
                                         ),
-                                        if (isMine && status == 'pending')
+                                        if (effectiveStatus == 'pending')
                                           Container(
                                             margin: const EdgeInsets.only(
                                               top: 4,
@@ -809,10 +876,11 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                                                   BorderRadius.circular(6),
                                             ),
                                             child: Text(
-                                              'Mine',
+                                              isMine ? 'Mine' : 'Pending',
                                               style: TextStyle(
                                                 fontSize: 8,
-                                                color: Colors.amber.shade800,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.amber.shade900,
                                               ),
                                             ),
                                           ),
@@ -838,7 +906,8 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
         onTabSelected: _onNavTab,
       ),
     ),
-  );
+  ),
+);
 }
 
   Widget _legendItem(Color color, String label) {

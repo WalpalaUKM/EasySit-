@@ -69,7 +69,7 @@ flutter_launcher_icons:
   ios: true
   remove_alpha_ios: true
   image_path: "assets/images/logo.png"
-  adaptive_icon_background: "#29234F"
+  adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/images/logo.png"
   min_sdk_android: 21
   web:
@@ -94,6 +94,7 @@ flutter:
   assets:
     - assets/images/logo.png
     - assets/images/student_avatar.png
+    - assets/images/chair_icon.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

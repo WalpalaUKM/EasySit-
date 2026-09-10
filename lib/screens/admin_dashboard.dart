@@ -12,6 +12,7 @@ import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import 'login_screen.dart';
 import '../utils/app_page_route.dart';
+import '../services/auth_persistence_service.dart';
 
 // ============================================================
 // MAIN ADMIN DASHBOARD
@@ -55,6 +56,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
+              await AuthPersistenceService.clear();
               await FirebaseAuth.instance.signOut();
               if (context.mounted) {
                 Navigator.pushReplacement(
