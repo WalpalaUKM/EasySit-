@@ -16,11 +16,7 @@ class ProfileScreen extends StatefulWidget {
   final bool isTab;
   final ValueChanged<int>? onTabSelected;
 
-  const ProfileScreen({
-    super.key,
-    this.isTab = false,
-    this.onTabSelected,
-  });
+  const ProfileScreen({super.key, this.isTab = false, this.onTabSelected});
 
   static Map<String, dynamic>? cachedBooking;
   static String cachedStatus = '';
@@ -47,7 +43,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   String get _hoursStudiedFormatted {
     if (_totalMinutesStudied <= 0 && _hoursStudiedNum <= 0) return '0';
-    num val = _hoursStudiedNum > 0 ? _hoursStudiedNum : (_totalMinutesStudied / 60.0);
+    num val =
+        _hoursStudiedNum > 0 ? _hoursStudiedNum : (_totalMinutesStudied / 60.0);
     if (val == val.roundToDouble()) {
       return val.toInt().toString();
     }
@@ -129,7 +126,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _phone = data['phone'] ?? '';
       _userType = data['userType'] ?? 'Student';
       _sessionsCompleted = (data['sessionsCompleted'] as num?)?.toInt() ?? 0;
-      _totalMinutesStudied = (data['totalMinutesStudied'] as num?)?.toInt() ?? 0;
+      _totalMinutesStudied =
+          (data['totalMinutesStudied'] as num?)?.toInt() ?? 0;
       if (data['hoursStudied'] != null) {
         _hoursStudiedNum = data['hoursStudied'] as num;
       } else if (_totalMinutesStudied > 0) {
@@ -168,7 +166,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   .where('pendingBy', isEqualTo: _user.uid)
                   .get(const GetOptions(source: Source.cache))
                   .then((pSnap) {
-                    if (pSnap.docs.isNotEmpty && mounted && _activeBooking == null) {
+                    if (pSnap.docs.isNotEmpty &&
+                        mounted &&
+                        _activeBooking == null) {
                       _onBookingFound(pSnap.docs.first, 'pending');
                     }
                   })
@@ -260,9 +260,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           }
         }
 
-        if (mounted && _activeBooking != null && _activeBooking!['docId'] == doc.id) {
+        if (mounted &&
+            _activeBooking != null &&
+            _activeBooking!['docId'] == doc.id) {
           setState(() {
-            _activeBooking!['roomName'] = roomName.isNotEmpty ? roomName : 'Room';
+            _activeBooking!['roomName'] =
+                roomName.isNotEmpty ? roomName : 'Room';
             _activeBooking!['floorName'] = floorName;
             _activeBooking!['buildingName'] = buildingName;
             ProfileScreen.cachedBooking = _activeBooking;
@@ -275,10 +278,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _getRemainingTime() {
     if (_activeBooking == null) return '00:00';
     Timestamp? ts =
-        (_activeBooking!['bookedAt'] ?? _activeBooking!['pendingAt']) as Timestamp?;
+        (_activeBooking!['bookedAt'] ?? _activeBooking!['pendingAt'])
+            as Timestamp?;
     if (ts == null) return '00:00';
     final bool isBooked =
-        _activeBooking!['status'] == 'booked' || _activeBooking!['bookedAt'] != null;
+        _activeBooking!['status'] == 'booked' ||
+        _activeBooking!['bookedAt'] != null;
     final duration =
         isBooked ? const Duration(minutes: 2) : const Duration(minutes: 10);
     final expiresAt = ts.toDate().add(duration);
@@ -324,25 +329,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _logout() async {
     bool? confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'Logout',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: const Text('Are you sure you want to logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+      builder:
+          (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Text(
+              'Logout',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            content: const Text('Are you sure you want to logout?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text(
+                  'Logout',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Logout', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
     );
     if (confirm != true) return;
     await AuthPersistenceService.clear();
@@ -442,11 +456,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       controller: _nameCtrl,
                       decoration: InputDecoration(
                         labelText: 'Full Name',
-                        prefixIcon: const Icon(Icons.person_outline_rounded, color: Color(0xFF3B82F6)),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                        prefixIcon: const Icon(
+                          Icons.person_outline_rounded,
+                          color: Color(0xFF3B82F6),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF3B82F6),
+                            width: 2,
+                          ),
                         ),
                       ),
                     ),
@@ -456,11 +478,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
                         labelText: 'Email Address',
-                        prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF3B82F6)),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                        prefixIcon: const Icon(
+                          Icons.email_outlined,
+                          color: Color(0xFF3B82F6),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF3B82F6),
+                            width: 2,
+                          ),
                         ),
                       ),
                     ),
@@ -470,11 +500,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       keyboardType: TextInputType.phone,
                       decoration: InputDecoration(
                         labelText: 'Phone Number',
-                        prefixIcon: const Icon(Icons.phone_outlined, color: Color(0xFF3B82F6)),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                        prefixIcon: const Icon(
+                          Icons.phone_outlined,
+                          color: Color(0xFF3B82F6),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF3B82F6),
+                            width: 2,
+                          ),
                         ),
                       ),
                     ),
@@ -483,15 +521,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       width: double.infinity,
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: _isSaving
-                            ? null
-                            : () async {
-                                setModalState(() => _isSaving = true);
-                                await _saveProfile();
-                                if (sheetContext.mounted) {
-                                  Navigator.pop(sheetContext);
-                                }
-                              },
+                        onPressed:
+                            _isSaving
+                                ? null
+                                : () async {
+                                  setModalState(() => _isSaving = true);
+                                  await _saveProfile();
+                                  if (sheetContext.mounted) {
+                                    Navigator.pop(sheetContext);
+                                  }
+                                },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF3B82F6),
                           foregroundColor: Colors.white,
@@ -500,22 +539,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           elevation: 0,
                         ),
-                        child: _isSaving
-                            ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2.5,
+                        child:
+                            _isSaving
+                                ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2.5,
+                                  ),
+                                )
+                                : const Text(
+                                  'Save Changes',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              )
-                            : const Text(
-                                'Save Changes',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
                       ),
                     ),
                   ],
@@ -531,66 +571,96 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _showHelpAndSupportDialog() {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Row(
-          children: [
-            Icon(Icons.help_outline_rounded, color: Color(0xFF3B82F6)),
-            SizedBox(width: 10),
-            Text('Help & Support', style: TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('For any inquiries or technical assistance:'),
-            SizedBox(height: 12),
-            Text('Email: support@easysit.app', style: TextStyle(fontWeight: FontWeight.w600)),
-            SizedBox(height: 4),
-            Text('Phone: 0713393669', style: TextStyle(fontWeight: FontWeight.w600)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close', style: TextStyle(color: Color(0xFF3B82F6))),
+      builder:
+          (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.help_outline_rounded, color: Color(0xFF3B82F6)),
+                SizedBox(width: 10),
+                Text(
+                  'Help & Support',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('For any inquiries or technical assistance:'),
+                SizedBox(height: 12),
+                Text(
+                  'Email: support@easysit.app',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Phone: 0713393669',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text(
+                  'Close',
+                  style: TextStyle(color: Color(0xFF3B82F6)),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
   void _showAboutDialog() {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Row(
-          children: [
-            Icon(Icons.info_outline_rounded, color: Color(0xFF3B82F6)),
-            SizedBox(width: 10),
-            Text('About EasySit', style: TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('EasySit is a smart library seat booking system.'),
-            SizedBox(height: 12),
-            Text('Version: 1.0.0', style: TextStyle(fontWeight: FontWeight.w600)),
-            SizedBox(height: 4),
-            Text('Developer: EasySit Team', style: TextStyle(fontWeight: FontWeight.w600)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close', style: TextStyle(color: Color(0xFF3B82F6))),
+      builder:
+          (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.info_outline_rounded, color: Color(0xFF3B82F6)),
+                SizedBox(width: 10),
+                Text(
+                  'About EasySit',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('EasySit is a smart library seat booking system.'),
+                SizedBox(height: 12),
+                Text(
+                  'Version: 1.0.0',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Developer: EasySit Team',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text(
+                  'Close',
+                  style: TextStyle(color: Color(0xFF3B82F6)),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -623,7 +693,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // Middle Section (Styled to match design)
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -649,7 +722,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _buildSettingsCard(),
                     const SizedBox(height: 18),
                     _buildLogoutButton(),
-                    const SizedBox(height: 100), // Space for floating bottom nav
+                    const SizedBox(
+                      height: 100,
+                    ), // Space for floating bottom nav
                   ],
                 ),
               ),
@@ -657,12 +732,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: widget.isTab
-          ? null
-          : AppBottomNav(
-              currentIndex: 3,
-              onTabSelected: _onNavTab,
-            ),
+      bottomNavigationBar:
+          widget.isTab
+              ? null
+              : AppBottomNav(currentIndex: 3, onTabSelected: _onNavTab),
     );
 
     if (widget.isTab) {
@@ -714,23 +787,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Image.asset(
                 'assets/images/student_avatar.png',
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      _fullName.isNotEmpty ? _fullName[0].toUpperCase() : 'S',
-                      style: const TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                errorBuilder:
+                    (_, __, ___) => Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          _fullName.isNotEmpty
+                              ? _fullName[0].toUpperCase()
+                              : 'S',
+                          style: const TextStyle(
+                            fontSize: 30,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
               ),
             ),
           ),
@@ -761,7 +837,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 10),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE8EEFF),
                     borderRadius: BorderRadius.circular(20),
@@ -806,7 +885,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final location = [
       _activeBooking!['buildingName']?.toString() ?? '',
       _activeBooking!['roomName']?.toString() ?? '',
-      _activeBooking!['floorName']?.toString() ?? ''
+      _activeBooking!['floorName']?.toString() ?? '',
     ].where((s) => s.isNotEmpty).join(' • ');
 
     final isBooked = _bookingStatus == 'booked';
@@ -1064,11 +1143,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
           ),
-          Container(
-            width: 1,
-            height: 60,
-            color: const Color(0xFFF1F5F9),
-          ),
+          Container(width: 1, height: 60, color: const Color(0xFFF1F5F9)),
           // Stat 2: Hours Studied
           Expanded(
             child: Column(
@@ -1110,11 +1185,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
           ),
-          Container(
-            width: 1,
-            height: 60,
-            color: const Color(0xFFF1F5F9),
-          ),
+          Container(width: 1, height: 60, color: const Color(0xFFF1F5F9)),
           // Stat 3: Different Seats Used
           Expanded(
             child: Column(
@@ -1282,11 +1353,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.logout_rounded,
-                color: Color(0xFFEF4444),
-                size: 22,
-              ),
+              Icon(Icons.logout_rounded, color: Color(0xFFEF4444), size: 22),
               SizedBox(width: 8),
               Text(
                 'Logout',
