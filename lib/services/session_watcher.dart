@@ -4,8 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../navigator_key.dart';
 import '../widgets/expiry_dialog.dart';
-import '../widgets/reservation_expired_dialog.dart';
+import '../widgets/session_extended_dialog.dart';
 import 'notification_service.dart';
+import 'user_stats_service.dart';
 
 class SessionWatcher {
   static Timer? _timer;
@@ -50,7 +51,7 @@ class SessionWatcher {
         final bookedAt = data['bookedAt'] as Timestamp?;
         if (bookedAt == null) continue;
 
-        final expiresAt = bookedAt.toDate().add(const Duration(minutes: 5));
+        final expiresAt = bookedAt.toDate().add(const Duration(minutes: 2));
         final secs = expiresAt.difference(now).inSeconds;
 
         if (_lastKnownBookedAt != bookedAt.toDate()) {
@@ -58,18 +59,18 @@ class SessionWatcher {
           _lastKnownBookedAt = bookedAt.toDate();
         }
 
-        if (secs <= 120 && secs > 0 && !_bookedNotifSent.contains(doc.id)) {
+        if (secs <= 60 && secs > 0 && !_bookedNotifSent.contains(doc.id)) {
           _bookedNotifSent.add(doc.id);
           await FirebaseFirestore.instance.collection('notifications').add({
             'title': 'Session Expiring',
             'message':
-                'Your session at ${data['buildingName'] ?? ''}, ${data['roomName'] ?? ''} (Seat ${data['seatNumber']?.toString() ?? doc.id}) will expire in 2 minutes.',
+                'Your session at ${data['buildingName'] ?? ''}, ${data['roomName'] ?? ''} (Seat ${data['seatNumber']?.toString() ?? doc.id}) will expire in 1 minute.',
             'timestamp': FieldValue.serverTimestamp(),
             'userId': user.uid,
           });
         }
 
-        if (secs <= 60 && secs > 0 && !_dialogShowing) {
+        if (secs <= 45 && secs > 0 && !_dialogShowing) {
           _dialogShowing = true;
           _currentSeatId = doc.id;
           _showDialog(
@@ -86,6 +87,12 @@ class SessionWatcher {
           _dialogShowing = false;
           _currentSeatId = null;
           _countdownTimer?.cancel();
+          UserStatsService.recordCompletedSession(
+            userId: user.uid,
+            seatId: doc.id,
+            bookedAt: (data['bookedAt'] as Timestamp?)?.toDate(),
+            fallbackMinutes: 2,
+          );
           _releaseSeat(doc.id);
         }
       }
@@ -108,27 +115,19 @@ class SessionWatcher {
         final expiresAt = pendingAt.toDate().add(const Duration(minutes: 10));
         final secs = expiresAt.difference(now).inSeconds;
 
-        if (secs <= 60 && secs > 0 && !_pendingNotifSent.contains(doc.id)) {
+        if (secs <= 120 && secs > 0 && !_pendingNotifSent.contains(doc.id)) {
           _pendingNotifSent.add(doc.id);
           await FirebaseFirestore.instance.collection('notifications').add({
             'title': 'Reservation Expiring',
             'message':
-                'Your reserved seat (Seat ${data['seatNumber']?.toString() ?? doc.id}) will expire in 1 minute. Please confirm your booking to secure it.',
+                'Your pending reservation for Seat ${data['seatNumber']?.toString() ?? doc.id} will expire in 2 minutes. Please scan the QR code to confirm.',
             'timestamp': FieldValue.serverTimestamp(),
             'userId': user.uid,
           });
         }
 
         if (secs <= 0) {
-          await _releasePendingSeat(doc.id);
-          await FirebaseFirestore.instance.collection('notifications').add({
-            'title': 'Reservation Expired',
-            'message':
-                'Your reserved seat (Seat ${data['seatNumber']?.toString() ?? doc.id}) has expired and was released.',
-            'timestamp': FieldValue.serverTimestamp(),
-            'userId': user.uid,
-          });
-          ReservationExpiredDialog.show();
+          _releasePendingSeat(doc.id);
         }
       }
     } catch (_) {}
@@ -192,22 +191,26 @@ class SessionWatcher {
 
   static Future<void> _extendSeat(String seatId) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
     try {
+      final now = DateTime.now();
+      // Set bookedAt so that (bookedAt + 2 minutes) = now + 4 minutes
+      final effectiveBookedAt = now.add(const Duration(minutes: 2));
       await FirebaseFirestore.instance.collection('seats').doc(seatId).update({
-        'bookedAt': Timestamp.fromDate(DateTime.now()),
+        'bookedAt': Timestamp.fromDate(effectiveBookedAt),
       });
-      await NotificationService.clearUserNotifications(user.uid);
+      if (user != null) {
+        await NotificationService.clearUserNotifications(user.uid);
+        await FirebaseFirestore.instance.collection('notifications').add({
+          'title': 'Session Extended',
+          'message': 'Your session has been successfully extended by 4 minutes.',
+          'timestamp': FieldValue.serverTimestamp(),
+          'userId': user.uid,
+        });
+      }
 
       final context = navigatorKey.currentContext;
       if (context != null && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Session extended by 4 minutes!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        SessionExtendedDialog.show(context, 4);
       }
     } catch (_) {}
   }
@@ -215,6 +218,20 @@ class SessionWatcher {
   static Future<void> _releaseSeat(String seatId) async {
     final user = FirebaseAuth.instance.currentUser;
     try {
+      if (user != null) {
+        DocumentSnapshot seatSnap = await FirebaseFirestore.instance.collection('seats').doc(seatId).get();
+        if (seatSnap.exists) {
+          final sData = seatSnap.data() as Map<String, dynamic>?;
+          if (sData?['status'] == 'booked') {
+            UserStatsService.recordCompletedSession(
+              userId: user.uid,
+              seatId: seatId,
+              bookedAt: (sData?['bookedAt'] as Timestamp?)?.toDate(),
+              fallbackMinutes: 2,
+            );
+          }
+        }
+      }
       await FirebaseFirestore.instance.collection('seats').doc(seatId).update({
         'status': 'available',
         'bookedBy': FieldValue.delete(),
