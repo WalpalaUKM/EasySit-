@@ -7,6 +7,7 @@ import 'student_home_screen.dart';
 import 'profile_screen.dart';
 
 import '../widgets/app_bottom_nav.dart';
+import '../widgets/reservation_expired_dialog.dart';
 import '../services/notification_service.dart';
 import '../utils/app_page_route.dart';
 
@@ -153,7 +154,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Seat #$seatNumber',
+                  'Seat $seatNumber',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 20,
@@ -238,7 +239,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 Text('Scan verified! Confirm booking for:'),
                 const SizedBox(height: 8),
                 Text(
-                  'Seat #$seatNumber',
+                  'Seat $seatNumber',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
@@ -333,7 +334,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     }
     bool hasBooking = await _hasExistingBooking(user.uid);
     if (hasBooking) {
-      _showError('You already have an active booking. Cancel it first.');
+      if (mounted) _showActiveBookingPopup(context);
       return;
     }
     try {
@@ -415,9 +416,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 'pendingAt': FieldValue.delete(),
               });
           if (mounted) {
-            _showError(
-              'Time expired! Reservation released. Please reserve again.',
-            );
+            setState(() => _isProcessing = false);
+            ReservationExpiredDialog.show(context);
           }
           return;
         }
@@ -511,6 +511,80 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         }
       }
     });
+  }
+
+  void _showActiveBookingPopup(BuildContext context) {
+    if (!mounted) return;
+    setState(() => _isProcessing = false);
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        Future.delayed(const Duration(seconds: 3), () {
+          if (ctx.mounted && Navigator.canPop(ctx)) {
+            Navigator.pop(ctx);
+          }
+        });
+
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          backgroundColor: Colors.white,
+          elevation: 10,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 28,
+            vertical: 24,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 28,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.warning_amber_rounded,
+                    size: 36,
+                    color: Colors.amber.shade700,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Active booking found',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Please cancel your current booking before booking another seat.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _showError(String message) {

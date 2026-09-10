@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../navigator_key.dart';
 import '../widgets/expiry_dialog.dart';
+import '../widgets/reservation_expired_dialog.dart';
 import 'notification_service.dart';
 
 class SessionWatcher {
@@ -18,7 +19,7 @@ class SessionWatcher {
 
   static void start() {
     _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 5), (_) => _check());
+    _timer = Timer.periodic(const Duration(seconds: 3), (_) => _check());
   }
 
   static void stop() {
@@ -62,7 +63,7 @@ class SessionWatcher {
           await FirebaseFirestore.instance.collection('notifications').add({
             'title': 'Session Expiring',
             'message':
-                'Your session at ${data['buildingName'] ?? ''}, ${data['roomName'] ?? ''} (Seat #${data['seatNumber']?.toString() ?? doc.id}) will expire in 2 minutes.',
+                'Your session at ${data['buildingName'] ?? ''}, ${data['roomName'] ?? ''} (Seat ${data['seatNumber']?.toString() ?? doc.id}) will expire in 2 minutes.',
             'timestamp': FieldValue.serverTimestamp(),
             'userId': user.uid,
           });
@@ -112,10 +113,22 @@ class SessionWatcher {
           await FirebaseFirestore.instance.collection('notifications').add({
             'title': 'Reservation Expiring',
             'message':
-                'Your reserved seat (#${data['seatNumber']?.toString() ?? doc.id}) will expire in 1 minute. Please confirm your booking to secure it.',
+                'Your reserved seat (Seat ${data['seatNumber']?.toString() ?? doc.id}) will expire in 1 minute. Please confirm your booking to secure it.',
             'timestamp': FieldValue.serverTimestamp(),
             'userId': user.uid,
           });
+        }
+
+        if (secs <= 0) {
+          await _releasePendingSeat(doc.id);
+          await FirebaseFirestore.instance.collection('notifications').add({
+            'title': 'Reservation Expired',
+            'message':
+                'Your reserved seat (Seat ${data['seatNumber']?.toString() ?? doc.id}) has expired and was released.',
+            'timestamp': FieldValue.serverTimestamp(),
+            'userId': user.uid,
+          });
+          ReservationExpiredDialog.show();
         }
       }
     } catch (_) {}
@@ -211,6 +224,20 @@ class SessionWatcher {
       });
       if (user != null) {
         await NotificationService.clearUserNotifications(user.uid);
+      }
+    } catch (_) {}
+  }
+
+  static Future<void> _releasePendingSeat(String seatId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    try {
+      await FirebaseFirestore.instance.collection('seats').doc(seatId).update({
+        'status': 'available',
+        'pendingBy': FieldValue.delete(),
+        'pendingAt': FieldValue.delete(),
+      });
+      if (user != null) {
+        await NotificationService.clearUserNotifications(user.uid, title: 'Reservation Expiring');
       }
     } catch (_) {}
   }

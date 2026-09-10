@@ -63,13 +63,6 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Login Successful!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-
         if (userType == 'admin') {
           Navigator.pushReplacementNamed(context, '/admin_dashboard');
         } else {

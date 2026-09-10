@@ -1328,7 +1328,7 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
                     ),
               pw.SizedBox(height: 6),
               pw.Text(
-                'Seat #$seatNumber',
+                'Seat $seatNumber',
                 style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
               ),
             ],

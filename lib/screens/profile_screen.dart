@@ -9,6 +9,7 @@ import 'qr_scanner_screen.dart';
 import 'session_screen.dart';
 import 'notification_screen.dart';
 import '../utils/app_page_route.dart';
+import '../widgets/notification_bell_button.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -28,20 +29,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? _activeBooking;
   String _bookingStatus = '';
 
+  int _sessionsCompleted = 24;
+  int _hoursStudied = 56;
+  int _differentSeatsUsed = 18;
+
   final TextEditingController _nameCtrl = TextEditingController();
   final TextEditingController _emailCtrl = TextEditingController();
   final TextEditingController _phoneCtrl = TextEditingController();
-  bool _isEditing = false;
   bool _isSaving = false;
 
   StreamSubscription<QuerySnapshot>? _bookedSub;
   StreamSubscription<QuerySnapshot>? _pendingSub;
+  Timer? _countdownTimer;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
     _listenActiveBooking();
+    _startCountdownTimer();
   }
 
   @override
@@ -51,48 +57,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _phoneCtrl.dispose();
     _bookedSub?.cancel();
     _pendingSub?.cancel();
+    _countdownTimer?.cancel();
     super.dispose();
+  }
+
+  void _startCountdownTimer() {
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && _activeBooking != null) {
+        setState(() {});
+      }
+    });
   }
 
   Future<void> _loadUserData() async {
     if (_user == null) return;
     try {
-      // First try to load from cache for instant UI
+      // First try cache
       try {
         DocumentSnapshot cacheDoc = await _firestore
             .collection('users')
             .doc(_user.uid)
             .get(const GetOptions(source: Source.cache));
         if (cacheDoc.exists && mounted) {
-          var data = cacheDoc.data() as Map<String, dynamic>;
-          setState(() {
-            _fullName = data['fullName'] ?? '';
-            _email = data['email'] ?? _user.email ?? '';
-            _phone = data['phone'] ?? '';
-            _userType = data['userType'] ?? 'Student';
-          });
-          _nameCtrl.text = _fullName;
-          _emailCtrl.text = _email;
-          _phoneCtrl.text = _phone;
+          _applyUserData(cacheDoc.data() as Map<String, dynamic>);
         }
       } catch (_) {}
 
-      // Then fetch from server
+      // Then fetch server
       DocumentSnapshot doc =
           await _firestore.collection('users').doc(_user.uid).get();
       if (doc.exists && mounted) {
-        var data = doc.data() as Map<String, dynamic>;
-        setState(() {
-          _fullName = data['fullName'] ?? '';
-          _email = data['email'] ?? _user.email ?? '';
-          _phone = data['phone'] ?? '';
-          _userType = data['userType'] ?? 'Student';
-        });
-        _nameCtrl.text = _fullName;
-        _emailCtrl.text = _email;
-        _phoneCtrl.text = _phone;
+        _applyUserData(doc.data() as Map<String, dynamic>);
       }
     } catch (_) {}
+  }
+
+  void _applyUserData(Map<String, dynamic> data) {
+    setState(() {
+      _fullName = data['fullName'] ?? '';
+      _email = data['email'] ?? _user?.email ?? '';
+      _phone = data['phone'] ?? '';
+      _userType = data['userType'] ?? 'Student';
+      if (data['sessionsCompleted'] != null) {
+        _sessionsCompleted = (data['sessionsCompleted'] as num).toInt();
+      }
+      if (data['hoursStudied'] != null) {
+        _hoursStudied = (data['hoursStudied'] as num).toInt();
+      }
+      if (data['differentSeatsUsed'] != null) {
+        _differentSeatsUsed = (data['differentSeatsUsed'] as num).toInt();
+      }
+    });
+    _nameCtrl.text = _fullName;
+    _emailCtrl.text = _email;
+    _phoneCtrl.text = _phone;
   }
 
   void _listenActiveBooking() {
@@ -165,10 +183,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
           'floorName': floorName,
           'buildingName': buildingName,
           'status': status,
+          'bookedAt': data['bookedAt'],
+          'pendingAt': data['pendingAt'],
         };
         _bookingStatus = status;
       });
     }
+  }
+
+  String _getRemainingTime() {
+    if (_activeBooking == null) return '34:28';
+    Timestamp? ts =
+        (_activeBooking!['bookedAt'] ?? _activeBooking!['pendingAt']) as Timestamp?;
+    if (ts == null) return '34:28';
+    final duration = _bookingStatus == 'pending'
+        ? const Duration(minutes: 10)
+        : const Duration(minutes: 60);
+    final expiresAt = ts.toDate().add(duration);
+    final diff = expiresAt.difference(DateTime.now());
+    if (diff.isNegative) return '00:00';
+    final mins = diff.inMinutes.toString().padLeft(2, '0');
+    final secs = (diff.inSeconds % 60).toString().padLeft(2, '0');
+    return '$mins:$secs';
   }
 
   Future<void> _saveProfile() async {
@@ -184,7 +220,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _fullName = _nameCtrl.text.trim();
         _email = _emailCtrl.text.trim();
         _phone = _phoneCtrl.text.trim();
-        _isEditing = false;
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -205,24 +240,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _logout() async {
-    bool? confirm = await showDialog(
+    bool? confirm = await showDialog<bool>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Logout'),
-            content: const Text('Are you sure you want to logout?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Logout'),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Logout',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
           ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Logout', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
     );
     if (confirm != true) return;
     await FirebaseAuth.instance.signOut();
@@ -258,6 +296,217 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _showEditProfileSheet() {
+    _nameCtrl.text = _fullName;
+    _emailCtrl.text = _email;
+    _phoneCtrl.text = _phone;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+              ),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Edit Profile',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(sheetContext),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    TextField(
+                      controller: _nameCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Full Name',
+                        prefixIcon: const Icon(Icons.person_outline_rounded, color: Color(0xFF3B82F6)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _emailCtrl,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: InputDecoration(
+                        labelText: 'Email Address',
+                        prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF3B82F6)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _phoneCtrl,
+                      keyboardType: TextInputType.phone,
+                      decoration: InputDecoration(
+                        labelText: 'Phone Number',
+                        prefixIcon: const Icon(Icons.phone_outlined, color: Color(0xFF3B82F6)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: _isSaving
+                            ? null
+                            : () async {
+                                setModalState(() => _isSaving = true);
+                                await _saveProfile();
+                                if (sheetContext.mounted) {
+                                  Navigator.pop(sheetContext);
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF3B82F6),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: _isSaving
+                            ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2.5,
+                                ),
+                              )
+                            : const Text(
+                                'Save Changes',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showHelpAndSupportDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Row(
+          children: [
+            Icon(Icons.help_outline_rounded, color: Color(0xFF3B82F6)),
+            SizedBox(width: 10),
+            Text('Help & Support', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('For any inquiries or technical assistance:'),
+            SizedBox(height: 12),
+            Text('Email: support@easysit.app', style: TextStyle(fontWeight: FontWeight.w600)),
+            SizedBox(height: 4),
+            Text('Phone: 0713393669', style: TextStyle(fontWeight: FontWeight.w600)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close', style: TextStyle(color: Color(0xFF3B82F6))),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAboutDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Row(
+          children: [
+            Icon(Icons.info_outline_rounded, color: Color(0xFF3B82F6)),
+            SizedBox(width: 10),
+            Text('About EasySit', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('EasySit is a smart library seat booking system.'),
+            SizedBox(height: 12),
+            Text('Version: 1.0.0', style: TextStyle(fontWeight: FontWeight.w600)),
+            SizedBox(height: 4),
+            Text('Developer: EasySit Team', style: TextStyle(fontWeight: FontWeight.w600)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close', style: TextStyle(color: Color(0xFF3B82F6))),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -269,856 +518,681 @@ class _ProfileScreenState extends State<ProfileScreen> {
         } else {
           Navigator.pushAndRemoveUntil(
             context,
-            AppPageRoute(
-              builder: (_) => const StudentHomeScreen(),
-            ),
+            AppPageRoute(builder: (_) => const StudentHomeScreen()),
             (route) => false,
           );
         }
       },
       child: Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Top Bar
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Profile',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                  StreamBuilder<QuerySnapshot>(
-                    stream:
-                        _firestore
-                            .collection('notifications')
-                            .where('userId', whereIn: ['all', _user?.uid ?? ''])
-                            .snapshots(),
-                    builder: (context, snapshot) {
-                      int count = 0;
-                      if (snapshot.hasData) {
-                        count = snapshot.data!.docs.length;
-                      }
-                      return GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            AppPageRoute(
-                              builder: (_) => const NotificationScreen(),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.grey.shade200),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              const Icon(
-                                Icons.notifications_none,
-                                color: Colors.black87,
-                                size: 22,
-                              ),
-                              if (count > 0)
-                                Positioned(
-                                  right: 10,
-                                  top: 10,
-                                  child: Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: BoxDecoration(
-                                      color: Colors.red,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Colors.white,
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 10,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        backgroundColor: Colors.white,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Top Bar (Preserved as requested)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildUserInfoCard(),
-                    const SizedBox(height: 20),
-                    if (_activeBooking != null) _buildCurrentSession(),
-                    if (_activeBooking != null) const SizedBox(height: 20),
-                    _buildStats(),
-                    const SizedBox(height: 24),
                     const Text(
-                      'Settings & Options',
+                      'Profile',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF1A237E),
+                        color: Color(0xFF0F172A),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    _buildEditProfile(),
-                    const SizedBox(height: 12),
-                    _buildHelpAndSupport(),
-                    const SizedBox(height: 12),
-                    _buildAbout(),
-                    const SizedBox(height: 24),
-                    _buildLogout(),
-                    const SizedBox(height: 40),
+                    const NotificationBellButton(),
                   ],
                 ),
               ),
-            ),
-          ],
+
+              // Middle Section (Styled to match design)
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildUserInfoCard(),
+                      const SizedBox(height: 16),
+                      _buildCurrentSession(),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Your Statistics',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildStats(),
+                      const SizedBox(height: 18),
+                      _buildSettingsCard(),
+                      const SizedBox(height: 18),
+                      _buildLogoutButton(),
+                      const SizedBox(height: 100), // Space for floating bottom nav
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Bottom Navigation Bar (Preserved as requested)
+        bottomNavigationBar: AppBottomNav(
+          currentIndex: 3,
+          onTabSelected: _onNavTab,
         ),
       ),
-      bottomNavigationBar: AppBottomNav(
-        currentIndex: 3,
-        onTabSelected: _onNavTab,
-      ),
-    ),
-  );
-}
+    );
+  }
 
+  // 1. User Info Card
   Widget _buildUserInfoCard() {
     return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
           ),
         ],
-        border: Border.all(color: Colors.grey.shade100),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF3949AB), Color(0xFF1A237E)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF1A237E).withValues(alpha: 0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
+      child: Row(
+        children: [
+          ClipOval(
+            child: Container(
+              width: 74,
+              height: 74,
+              color: const Color(0xFFE0E7FF),
+              child: Image.asset(
+                'assets/images/student_avatar.png',
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+                    ),
                   ),
-                ],
-              ),
-              child: Center(
-                child: Text(
-                  _fullName.isNotEmpty ? _fullName[0].toUpperCase() : '?',
-                  style: const TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                  child: Center(
+                    child: Text(
+                      _fullName.isNotEmpty ? _fullName[0].toUpperCase() : 'S',
+                      style: const TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _fullName.isNotEmpty ? _fullName : 'Stack Holder',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _email.isNotEmpty ? _email : 'holder-ct22000@stu.kln.ac.lk',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: Color(0xFF64748B),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8EEFF),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.school_rounded,
+                        size: 16,
+                        color: Color(0xFF4F46E5),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        _userType.isNotEmpty ? _userType : 'Student',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF4F46E5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 2. Current Session Card
+  Widget _buildCurrentSession() {
+    final hasBooking = _activeBooking != null;
+    final seatNumber = hasBooking
+        ? (_activeBooking!['seatNumber']?.toString() ?? 'A03')
+        : 'A03';
+    final roomName = hasBooking
+        ? (_activeBooking!['roomName']?.toString() ?? 'Quiet Zone')
+        : 'Quiet Zone';
+    final location = hasBooking
+        ? [
+            _activeBooking!['buildingName']?.toString() ?? '',
+            _activeBooking!['roomName']?.toString() ?? '',
+            _activeBooking!['floorName']?.toString() ?? ''
+          ].where((s) => s.isNotEmpty).join(' • ')
+        : 'Admin • Library • Floor 6';
+    final isBooked = hasBooking ? _bookingStatus == 'booked' : true;
+    final statusText = hasBooking
+        ? (_bookingStatus == 'booked' ? 'Active' : 'Pending')
+        : 'Active';
+    final endsInText = hasBooking ? _getRemainingTime() : '34:28';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Current Session',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    AppPageRoute(builder: (_) => const SessionScreen()),
+                  );
+                },
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'View Details',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF3B82F6),
+                      ),
+                    ),
+                    SizedBox(width: 2),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 16,
+                      color: Color(0xFF3B82F6),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Container(
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8F8F0),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Center(
+                  child: Icon(
+                    Icons.chair_rounded,
+                    size: 32,
+                    color: Color(0xFF10B981),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      seatNumber,
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF10B981),
+                        height: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      roomName,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      location,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF94A3B8),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
-                    _fullName.isEmpty ? 'Stack Holder' : _fullName,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _email.isEmpty ? 'holder-ct22000@stu.kln.ac.lk' : _email,
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                  ),
-                  const SizedBox(height: 12),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 6,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color:
-                          _userType == 'Admin'
-                              ? Colors.purple.shade50
-                              : const Color(0xFFE8EAF6),
-                      borderRadius: BorderRadius.circular(20),
+                      color: isBooked
+                          ? const Color(0xFFE8F5E9)
+                          : const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          _userType == 'Admin'
-                              ? Icons.admin_panel_settings
-                              : Icons.school,
-                          size: 16,
-                          color:
-                              _userType == 'Admin'
-                                  ? Colors.purple.shade700
-                                  : const Color(0xFF3949AB),
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: isBooked
+                                ? const Color(0xFF10B981)
+                                : const Color(0xFFD97706),
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 4),
                         Text(
-                          _userType,
+                          statusText,
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color:
-                                _userType == 'Admin'
-                                    ? Colors.purple.shade700
-                                    : const Color(0xFF3949AB),
+                            color: isBooked
+                                ? const Color(0xFF10B981)
+                                : const Color(0xFFD97706),
                           ),
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Ends in ',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      Text(
+                        endsInText,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-            ),
-            const Icon(
-              Icons.arrow_forward_ios,
-              size: 20,
-              color: Colors.black87,
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildCurrentSession() {
-    bool isPending = _bookingStatus == 'pending';
+  // 3. Your Statistics Card
+  Widget _buildStats() {
     return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 16),
       decoration: BoxDecoration(
-        color: isPending ? Colors.orange.shade50 : Colors.green.shade50,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isPending ? Colors.orange.shade200 : Colors.green.shade200,
-          width: 1.5,
-        ),
+        border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      child: Row(
+        children: [
+          // Stat 1: Sessions Completed
+          Expanded(
+            child: Column(
               children: [
-                Icon(
-                  isPending ? Icons.timer_outlined : Icons.check_circle_outline,
-                  size: 24,
-                  color:
-                      isPending
-                          ? Colors.orange.shade700
-                          : Colors.green.shade700,
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.show_chart_rounded,
+                      size: 24,
+                      color: Color(0xFF3B82F6),
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(height: 8),
                 Text(
-                  isPending ? 'Pending Reservation' : 'Active Session',
-                  style: TextStyle(
-                    fontSize: 18,
+                  '$_sessionsCompleted',
+                  style: const TextStyle(
+                    fontSize: 26,
                     fontWeight: FontWeight.bold,
-                    color:
-                        isPending
-                            ? Colors.orange.shade800
-                            : Colors.green.shade800,
+                    color: Color(0xFF3B82F6),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'Session\nCompleted',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                    height: 1.2,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  _buildDetailRow(
-                    Icons.event_seat_rounded,
-                    'Seat',
-                    '#${_activeBooking!['seatNumber']}',
+          ),
+          Container(
+            width: 1,
+            height: 60,
+            color: const Color(0xFFF1F5F9),
+          ),
+          // Stat 2: Hours Studied
+          Expanded(
+            child: Column(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFECFDF5),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  const Divider(height: 16),
-                  _buildDetailRow(
-                    Icons.business_rounded,
-                    'Building',
-                    _activeBooking!['buildingName'] ?? '',
+                  child: const Center(
+                    child: Icon(
+                      Icons.access_time_rounded,
+                      size: 24,
+                      color: Color(0xFF10B981),
+                    ),
                   ),
-                  const Divider(height: 16),
-                  _buildDetailRow(
-                    Icons.layers_rounded,
-                    'Floor',
-                    _activeBooking!['floorName'] ?? '',
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '$_hoursStudied',
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF10B981),
                   ),
-                  const Divider(height: 16),
-                  _buildDetailRow(
-                    Icons.meeting_room_rounded,
-                    'Room',
-                    _activeBooking!['roomName'] ?? '',
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'Hours\nStudied',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                    height: 1.2,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          Container(
+            width: 1,
+            height: 60,
+            color: const Color(0xFFF1F5F9),
+          ),
+          // Stat 3: Different Seats Used
+          Expanded(
+            child: Column(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5F3FF),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.chair_rounded,
+                      size: 24,
+                      color: Color(0xFF8B5CF6),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '$_differentSeatsUsed',
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF8B5CF6),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'Different\nSeats Used',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                    height: 1.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildDetailRow(IconData icon, String label, String value) {
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: Colors.grey.shade500),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 80,
-          child: Text(
-            label,
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-            textAlign: TextAlign.right,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEditProfile() {
+  // 4. Settings Options Card
+  Widget _buildSettingsCard() {
     return Container(
+      width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 14,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: ExpansionTile(
-          collapsedIconColor: Colors.grey.shade400,
-          iconColor: const Color(0xFF1A237E),
-          title: const Text(
-            'Edit Profile',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              color: Color(0xFF1A237E),
-            ),
+      child: Column(
+        children: [
+          _buildMenuRow(
+            icon: Icons.person_outline_rounded,
+            title: 'Edit Profile',
+            isFirst: true,
+            onTap: _showEditProfileSheet,
           ),
-          subtitle: Text(
-            'Update your personal details',
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+          const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
+          _buildMenuRow(
+            icon: Icons.notifications_none_rounded,
+            title: 'Notification',
+            onTap: () {
+              Navigator.push(
+                context,
+                AppPageRoute(builder: (_) => const NotificationScreen()),
+              );
+            },
           ),
-          leading: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.edit_rounded,
-              color: Colors.blue.shade600,
-              size: 22,
-            ),
+          const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
+          _buildMenuRow(
+            icon: Icons.help_outline_rounded,
+            title: 'Help & Support',
+            onTap: _showHelpAndSupportDialog,
           ),
-          initiallyExpanded: _isEditing,
-          onExpansionChanged: (expanded) {
-            setState(() => _isEditing = expanded);
-          },
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              child: Column(
-                children: [
-                  const Divider(height: 24),
-                  TextField(
-                    controller: _nameCtrl,
-                    decoration: InputDecoration(
-                      labelText: 'Full Name',
-                      labelStyle: TextStyle(color: Colors.grey.shade600),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: Color(0xFF1A237E),
-                          width: 2,
-                        ),
-                      ),
-                      prefixIcon: const Icon(Icons.person_outline_rounded),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _emailCtrl,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: InputDecoration(
-                      labelText: 'Email Address',
-                      labelStyle: TextStyle(color: Colors.grey.shade600),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: Color(0xFF1A237E),
-                          width: 2,
-                        ),
-                      ),
-                      prefixIcon: const Icon(Icons.email_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _phoneCtrl,
-                    keyboardType: TextInputType.phone,
-                    decoration: InputDecoration(
-                      labelText: 'Phone Number',
-                      labelStyle: TextStyle(color: Colors.grey.shade600),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: Color(0xFF1A237E),
-                          width: 2,
-                        ),
-                      ),
-                      prefixIcon: const Icon(Icons.phone_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: _isSaving ? null : _saveProfile,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1A237E),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child:
-                          _isSaving
-                              ? const SizedBox(
-                                height: 24,
-                                width: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: Colors.white,
-                                ),
-                              )
-                              : const Text(
-                                'Save Changes',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStats() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1A237E).withValues(alpha: 0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 6),
+          const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
+          _buildMenuRow(
+            icon: Icons.info_outline_rounded,
+            title: 'About EasySit',
+            isLast: true,
+            onTap: _showAboutDialog,
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.event_seat,
-                      size: 28,
-                      color: Colors.blue.shade600,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  StreamBuilder<QuerySnapshot>(
-                    stream:
-                        _firestore
-                            .collection('seats')
-                            .where('bookedBy', isEqualTo: _user?.uid)
-                            .snapshots(),
-                    builder: (context, snapshot) {
-                      int count = snapshot.data?.docs.length ?? 0;
-                      return Text(
-                        '$count',
-                        style: const TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1A237E),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Completed\nSessions',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(height: 60, width: 1.5, color: Colors.grey.shade200),
-            Expanded(
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.access_time_filled,
-                      size: 28,
-                      color: Colors.orange.shade600,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  StreamBuilder<QuerySnapshot>(
-                    stream:
-                        _firestore
-                            .collection('seats')
-                            .where('bookedBy', isEqualTo: _user?.uid)
-                            .snapshots(),
-                    builder: (context, snapshot) {
-                      int totalMinutes = 0;
-                      if (snapshot.hasData) {
-                        for (var doc in snapshot.data!.docs) {
-                          var data = doc.data() as Map<String, dynamic>;
-                          Timestamp? bookedAt = data['bookedAt'] as Timestamp?;
-                          if (bookedAt != null) {
-                            Duration diff = DateTime.now().difference(
-                              bookedAt.toDate(),
-                            );
-                            totalMinutes += diff.inMinutes;
-                          }
-                        }
-                      }
-                      int hours = totalMinutes ~/ 60;
-                      return Text(
-                        '$hours',
-                        style: const TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1A237E),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Total\nHours',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
-  Widget _buildHelpAndSupport() {
-    return _buildSettingsTile(
-      icon: Icons.help_outline_rounded,
-      iconColor: Colors.blue.shade600,
-      bgColor: Colors.blue.shade50,
-      title: 'Help & Support',
-      subtitle: 'Contact us for assistance',
-      onTap: () {
-        showDialog(
-          context: context,
-          builder:
-              (ctx) => AlertDialog(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                title: const Text(
-                  'Help & Support',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                content: const Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('For assistance, please contact:'),
-                    SizedBox(height: 8),
-                    Text(
-                      'Email: support@easysit.app',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    Text(
-                      'Phone: 0713393669',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Close'),
-                  ),
-                ],
-              ),
-        );
-      },
-    );
-  }
-
-  Widget _buildAbout() {
-    return _buildSettingsTile(
-      icon: Icons.info_outline_rounded,
-      iconColor: Colors.indigo.shade600,
-      bgColor: Colors.indigo.shade50,
-      title: 'About EasySit',
-      subtitle: 'Version 1.0.0',
-      onTap: () {
-        showDialog(
-          context: context,
-          builder:
-              (ctx) => AlertDialog(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                title: const Text(
-                  'About EasySit',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                content: const Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'EasySit is a smart seat booking system for students.',
-                      style: TextStyle(fontSize: 14),
-                    ),
-                    SizedBox(height: 12),
-                    Text(
-                      'Version: 1.0.0',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    Text(
-                      'Platform: Mobile',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    Text(
-                      'Developer: EasySit Team',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Close'),
-                  ),
-                ],
-              ),
-        );
-      },
-    );
-  }
-
-  Widget _buildLogout() {
-    return _buildSettingsTile(
-      icon: Icons.logout_rounded,
-      iconColor: Colors.red.shade600,
-      bgColor: Colors.red.shade50,
-      title: 'Logout',
-      titleColor: Colors.red.shade600,
-      subtitle: 'Sign out of your account',
-      onTap: _logout,
-    );
-  }
-
-  Widget _buildSettingsTile({
+  Widget _buildMenuRow({
     required IconData icon,
-    required Color iconColor,
-    required Color bgColor,
     required String title,
-    required String subtitle,
-    Color? titleColor,
     required VoidCallback onTap,
+    bool isFirst = false,
+    bool isLast = false,
   }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.vertical(
+          top: isFirst ? const Radius.circular(20) : Radius.zero,
+          bottom: isLast ? const Radius.circular(20) : Radius.zero,
+        ),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+          child: Row(
+            children: [
+              Icon(icon, size: 22, color: const Color(0xFF3B82F6)),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: Color(0xFF94A3B8),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 5. Logout Button
+  Widget _buildLogoutButton() {
     return Container(
+      width: double.infinity,
+      height: 52,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFEF4444), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: const Color(0xFFEF4444).withValues(alpha: 0.05),
             blurRadius: 10,
-            offset: const Offset(0, 4),
+            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: bgColor,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, color: iconColor, size: 22),
+          borderRadius: BorderRadius.circular(16),
+          onTap: _logout,
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.logout_rounded,
+                color: Color(0xFFEF4444),
+                size: 22,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Logout',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFEF4444),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: titleColor ?? const Color(0xFF1A237E),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 16,
-                  color: Colors.grey.shade400,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

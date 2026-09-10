@@ -11,6 +11,8 @@ import '../widgets/app_bottom_nav.dart';
 import 'profile_screen.dart';
 import 'notification_screen.dart';
 import '../utils/app_page_route.dart';
+import '../widgets/notification_bell_button.dart';
+import '../widgets/reservation_expired_dialog.dart';
 
 class StudentHomeScreen extends StatefulWidget {
   const StudentHomeScreen({super.key});
@@ -225,69 +227,13 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
         ],
       ),
       actions: [
-        StreamBuilder<QuerySnapshot>(
-          stream:
-              _firestore
-                  .collection('notifications')
-                  .where('userId', whereIn: ['all', _user?.uid ?? ''])
-                  .snapshots(),
-          builder: (context, snapshot) {
-            int count = 0;
-            if (snapshot.hasData) {
-              count = snapshot.data!.docs.length;
-            }
-            return Padding(
-              padding: const EdgeInsets.only(right: 20),
-              child: Center(
-                child: GestureDetector(
-                  onTap: _openNotificationScreen,
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.grey.shade200),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        const Icon(
-                          Icons.notifications_none,
-                          color: Colors.black87,
-                          size: 22,
-                        ),
-                        if (count > 0)
-                          Positioned(
-                            right: 10,
-                            top: 10,
-                            child: Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 1.5,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
+        Padding(
+          padding: const EdgeInsets.only(right: 20),
+          child: Center(
+            child: NotificationBellButton(
+              onTap: _openNotificationScreen,
+            ),
+          ),
         ),
       ],
     );
@@ -342,6 +288,9 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
               'pendingBy': FieldValue.delete(),
               'pendingAt': FieldValue.delete(),
             });
+            if (mounted) {
+              ReservationExpiredDialog.show(context);
+            }
           }
         }
       }
@@ -387,7 +336,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
             children: [
               Expanded(
                 child: _buildPrimaryActionCard(
-                  icon: Icons.qr_code_scanner,
+                  icon: Icons.qr_code_2_rounded,
                   title: 'Scan QR',
                   subtitle: 'Claim a seat instantly',
                   onTap: () => _onNavTab(1),
@@ -494,12 +443,19 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
       child: Container(
         padding: const EdgeInsets.all(16.0),
         decoration: BoxDecoration(
-          color: const Color(0xFF5C55F2),
+          gradient: const LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              Color(0xFF3B5DF8),
+              Color(0xFF6B58F8),
+            ],
+          ),
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF5C55F2).withValues(alpha: 0.25),
-              blurRadius: 10,
+              color: const Color(0xFF3B5DF8).withValues(alpha: 0.32),
+              blurRadius: 12,
               offset: const Offset(0, 4),
             ),
           ],
@@ -516,18 +472,28 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Icon(icon, color: const Color(0xFF5C55F2), size: 24),
+                  child: Icon(icon, color: const Color(0xFF3B5DF8), size: 24),
                 ),
                 Container(
-                  padding: const EdgeInsets.all(6),
+                  width: 28,
+                  height: 28,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.arrow_forward_ios,
                     color: Colors.white,
-                    size: 12,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.chevron_right_rounded,
+                      color: Color(0xFF1E293B),
+                      size: 18,
+                    ),
                   ),
                 ),
               ],
@@ -547,11 +513,11 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
               subtitle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 12,
                 fontWeight: FontWeight.normal,
-                color: Colors.white70,
+                color: Colors.white.withValues(alpha: 0.85),
               ),
             ),
           ],

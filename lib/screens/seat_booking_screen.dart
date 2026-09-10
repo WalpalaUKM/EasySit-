@@ -7,8 +7,8 @@ import 'session_screen.dart';
 import 'student_home_screen.dart';
 import 'profile_screen.dart';
 import '../widgets/app_bottom_nav.dart';
-import 'notification_screen.dart';
 import '../utils/app_page_route.dart';
+import '../widgets/notification_bell_button.dart';
 
 class SeatBookingScreen extends StatefulWidget {
   final String roomId;
@@ -51,6 +51,78 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
     return false;
   }
 
+  void _showActiveBookingPopup(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        Future.delayed(const Duration(seconds: 3), () {
+          if (ctx.mounted && Navigator.canPop(ctx)) {
+            Navigator.pop(ctx);
+          }
+        });
+
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          backgroundColor: Colors.white,
+          elevation: 10,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 28,
+            vertical: 24,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 28,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.warning_amber_rounded,
+                    size: 36,
+                    color: Colors.amber.shade700,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Active booking found',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Please cancel your current booking before booking another seat.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _reserveSeat(String seatId, String seatNumber) async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -68,14 +140,7 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
     bool hasBooking = await _hasExistingBooking(user.uid);
     if (hasBooking) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'You already have an active booking. Cancel it first.',
-            ),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showActiveBookingPopup(context);
       }
       return;
     }
@@ -155,7 +220,7 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          'Seat #$seatNumber • ${widget.roomName}',
+                          'Seat $seatNumber • ${widget.roomName}',
                           style: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 13,
@@ -361,7 +426,7 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Are you sure you want to release Seat #$seatNumber?',
+                    'Are you sure you want to release Seat $seatNumber?',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontFamily: 'Inter',
@@ -379,19 +444,15 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                           child: OutlinedButton(
                             onPressed: () => Navigator.pop(context, false),
                             style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF64748B),
                               side: BorderSide(color: Colors.grey.shade300),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
+                                borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            child: Text(
+                            child: const Text(
                               'Keep Seat',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.grey.shade700,
-                              ),
+                              style: TextStyle(fontWeight: FontWeight.w600),
                             ),
                           ),
                         ),
@@ -403,20 +464,16 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                           child: ElevatedButton(
                             onPressed: () => Navigator.pop(context, true),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
+                              backgroundColor: Colors.red.shade600,
                               foregroundColor: Colors.white,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
+                                borderRadius: BorderRadius.circular(12),
                               ),
                             ),
                             child: const Text(
-                              'Yes, Release',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              'Release',
+                              style: TextStyle(fontWeight: FontWeight.w600),
                             ),
                           ),
                         ),
@@ -441,7 +498,7 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Seat #$seatNumber released.'),
+            content: Text('Seat $seatNumber released.'),
             backgroundColor: Colors.green,
           ),
         );
@@ -535,78 +592,7 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                       ),
                     ],
                   ),
-                  StreamBuilder<QuerySnapshot>(
-                    stream:
-                        _firestore
-                            .collection('notifications')
-                            .where(
-                              'userId',
-                              whereIn: [
-                                'all',
-                                FirebaseAuth.instance.currentUser?.uid ?? '',
-                              ],
-                            )
-                            .snapshots(),
-                    builder: (context, snapshot) {
-                      int count = 0;
-                      if (snapshot.hasData) {
-                        count = snapshot.data!.docs.length;
-                      }
-                      return GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            AppPageRoute(
-                              builder: (_) => const NotificationScreen(),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.grey.shade200),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              const Icon(
-                                Icons.notifications_none,
-                                color: Colors.black87,
-                                size: 22,
-                              ),
-                              if (count > 0)
-                                Positioned(
-                                  right: 10,
-                                  top: 10,
-                                  child: Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: BoxDecoration(
-                                      color: Colors.red,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Colors.white,
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                  const NotificationBellButton(),
                 ],
               ),
             ),

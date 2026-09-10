@@ -7,8 +7,9 @@ import '../widgets/app_bottom_nav.dart';
 import 'student_home_screen.dart';
 import 'qr_scanner_screen.dart';
 import 'profile_screen.dart';
-import 'notification_screen.dart';
 import '../utils/app_page_route.dart';
+import '../widgets/notification_bell_button.dart';
+import '../widgets/reservation_expired_dialog.dart';
 
 class SessionScreen extends StatefulWidget {
   const SessionScreen({super.key});
@@ -408,12 +409,7 @@ class _SessionScreenState extends State<SessionScreen>
         _activeBooking = null;
         _bookingStatus = '';
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('⏰ Reservation expired. Seat released.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      ReservationExpiredDialog.show(context);
     }
   }
 
@@ -614,72 +610,7 @@ class _SessionScreenState extends State<SessionScreen>
                         ),
                       ],
                     ),
-                  StreamBuilder<QuerySnapshot>(
-                    stream:
-                        _firestore
-                            .collection('notifications')
-                            .where('userId', whereIn: ['all', _user?.uid ?? ''])
-                            .snapshots(),
-                    builder: (context, snapshot) {
-                      int count = 0;
-                      if (snapshot.hasData) {
-                        count = snapshot.data!.docs.length;
-                      }
-                      return GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            AppPageRoute(
-                              builder: (_) => const NotificationScreen(),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.grey.shade200),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              const Icon(
-                                Icons.notifications_none,
-                                color: Colors.black87,
-                                size: 22,
-                              ),
-                              if (count > 0)
-                                Positioned(
-                                  right: 10,
-                                  top: 10,
-                                  child: Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: BoxDecoration(
-                                      color: Colors.red,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Colors.white,
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                  const NotificationBellButton(),
                 ],
               ),
             ),

@@ -1,11 +1,60 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
+
+  static final ValueNotifier<DateTime?> lastSeenNotifier =
+      ValueNotifier<DateTime?>(null);
+
+  static final ValueNotifier<DateTime?> clearedNotifier =
+      ValueNotifier<DateTime?>(null);
+
+  /// Mark all notifications as seen by the current user
+  static Future<void> markNotificationsAsSeen() async {
+    final now = DateTime.now();
+    lastSeenNotifier.value = now;
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .set({
+          'lastSeenNotification': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+    } catch (e) {
+      debugPrint('Error updating lastSeenNotification: $e');
+    }
+  }
+
+  /// Auto-clean notifications for this user:
+  /// Updates clearedNotificationAt in users/{userId} and removes personal notification documents.
+  static Future<void> autoCleanNotifications(String userId) async {
+    final now = DateTime.now();
+    clearedNotifier.value = now;
+    lastSeenNotifier.value = now;
+
+    if (userId.isEmpty) return;
+
+    try {
+      final firestore = FirebaseFirestore.instance;
+      await firestore.collection('users').doc(userId).set({
+        'clearedNotificationAt': FieldValue.serverTimestamp(),
+        'lastSeenNotification': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      await clearUserNotifications(userId);
+    } catch (e) {
+      debugPrint('Error auto-cleaning notifications: $e');
+    }
+  }
 
   static Future<void> initialize() async {
     tz.initializeTimeZones();

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'seat_booking_screen.dart';
 import 'student_home_screen.dart';
@@ -7,8 +6,8 @@ import 'qr_scanner_screen.dart';
 import 'session_screen.dart';
 import 'profile_screen.dart';
 import '../widgets/app_bottom_nav.dart';
-import 'notification_screen.dart';
 import '../utils/app_page_route.dart';
+import '../widgets/notification_bell_button.dart';
 
 class FindSeatsScreen extends StatefulWidget {
   const FindSeatsScreen({super.key});
@@ -19,11 +18,17 @@ class FindSeatsScreen extends StatefulWidget {
 
 class _FindSeatsScreenState extends State<FindSeatsScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   String? _selectedBuildingId;
+  String? _selectedBuildingName;
   String? _selectedFloorId;
+  String? _selectedFloorName;
+  String? _selectedAreaId;
+  String? _selectedAreaName;
 
   late Stream<QuerySnapshot> _buildingsStream;
+  late Stream<QuerySnapshot> _roomsStream;
   late Stream<List<Map<String, dynamic>>> _allRoomsStream;
 
   String? _lastBuildingIdForFloors;
@@ -33,7 +38,14 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
   void initState() {
     super.initState();
     _buildingsStream = _firestore.collection('buildings').snapshots();
+    _roomsStream = _firestore.collection('rooms').snapshots();
     _allRoomsStream = _buildAllRoomsStream();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Stream<QuerySnapshot>? _getFloorsStream() {
@@ -158,6 +170,348 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
     }
   }
 
+  void _clearAllFilters() {
+    setState(() {
+      _searchController.clear();
+      _searchQuery = '';
+      _selectedBuildingId = null;
+      _selectedBuildingName = null;
+      _selectedFloorId = null;
+      _selectedFloorName = null;
+      _selectedAreaId = null;
+      _selectedAreaName = null;
+    });
+  }
+
+  Widget _buildFilterPill({
+    required String defaultLabel,
+    required String? selectedLabel,
+    required bool isSelected,
+    required String? currentValue,
+    required List<DropdownMenuItem<String>> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    final bool valueExists =
+        currentValue != null && items.any((it) => it.value == currentValue);
+    final String? effectiveValue = valueExists ? currentValue : null;
+    final bool effectiveSelected = isSelected && valueExists;
+
+    final String displayLabel =
+        effectiveSelected && selectedLabel != null && selectedLabel.isNotEmpty
+            ? selectedLabel
+            : defaultLabel;
+
+    return Container(
+      height: 38,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color:
+            effectiveSelected
+                ? const Color(0xFF3B66F5)
+                : const Color(0xFFF1F4F9),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color:
+              effectiveSelected
+                  ? const Color(0xFF3B66F5)
+                  : const Color(0xFFE2E8F0),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color:
+                effectiveSelected
+                    ? const Color(0xFF3B66F5).withValues(alpha: 0.30)
+                    : Colors.black.withValues(alpha: 0.04),
+            blurRadius: effectiveSelected ? 8 : 4,
+            offset: Offset(0, effectiveSelected ? 2 : 1),
+          ),
+        ],
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: effectiveValue,
+          isDense: true,
+          borderRadius: BorderRadius.circular(16),
+          dropdownColor: Colors.white,
+          elevation: 4,
+          menuMaxHeight: 300,
+          iconSize: 18,
+          icon: Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 18,
+              color:
+                  effectiveSelected
+                      ? Colors.white
+                      : const Color(0xFF64748B),
+            ),
+          ),
+          hint: Text(
+            defaultLabel,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              color: Color(0xFF1E293B),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+          selectedItemBuilder:
+              items.isEmpty
+                  ? null
+                  : (context) {
+                    return items.map<Widget>((item) {
+                      return ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 100),
+                        child: Text(
+                          item.value == null ? defaultLabel : displayLabel,
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            color:
+                                effectiveSelected
+                                    ? Colors.white
+                                    : const Color(0xFF1E293B),
+                            fontSize: 13,
+                            fontWeight:
+                                effectiveSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      );
+                    }).toList();
+                  },
+          items: items.isEmpty ? null : items,
+          onChanged: items.isEmpty ? null : onChanged,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBuildingFilter() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _buildingsStream,
+      builder: (context, snapshot) {
+        var items = <DropdownMenuItem<String>>[];
+        if (snapshot.hasData) {
+          items.add(
+            const DropdownMenuItem<String>(
+              value: null,
+              child: Text(
+                'All Buildings',
+                style: TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          );
+          for (var doc in snapshot.data!.docs) {
+            var data = doc.data() as Map<String, dynamic>;
+            final name = data['name'] ?? 'Unnamed';
+            final isCur = doc.id == _selectedBuildingId;
+            items.add(
+              DropdownMenuItem<String>(
+                value: doc.id,
+                child: Text(
+                  name,
+                  style: TextStyle(
+                    color:
+                        isCur
+                            ? const Color(0xFF3B66F5)
+                            : const Color(0xFF1E293B),
+                    fontSize: 13,
+                    fontWeight: isCur ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+            );
+          }
+        }
+        return _buildFilterPill(
+          defaultLabel: 'Building',
+          selectedLabel: _selectedBuildingName,
+          isSelected: _selectedBuildingId != null,
+          currentValue: _selectedBuildingId,
+          items: items,
+          onChanged: (value) {
+            setState(() {
+              _selectedBuildingId = value;
+              _selectedFloorId = null;
+              _selectedFloorName = null;
+              _selectedAreaId = null;
+              _selectedAreaName = null;
+              if (value == null) {
+                _selectedBuildingName = null;
+              } else if (snapshot.hasData) {
+                final match = snapshot.data!.docs.firstWhere(
+                  (d) => d.id == value,
+                );
+                _selectedBuildingName = (match.data() as Map)['name'];
+              }
+            });
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildFloorFilter() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _getFloorsStream(),
+      builder: (context, snapshot) {
+        var items = <DropdownMenuItem<String>>[];
+        if (_selectedBuildingId != null && snapshot.hasData) {
+          items.add(
+            const DropdownMenuItem<String>(
+              value: null,
+              child: Text(
+                'All Floors',
+                style: TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          );
+          for (var doc in snapshot.data!.docs) {
+            var data = doc.data() as Map<String, dynamic>;
+            final name = data['name'] ?? 'Floor';
+            final isCur = doc.id == _selectedFloorId;
+            items.add(
+              DropdownMenuItem<String>(
+                value: doc.id,
+                child: Text(
+                  name,
+                  style: TextStyle(
+                    color:
+                        isCur
+                            ? const Color(0xFF3B66F5)
+                            : const Color(0xFF1E293B),
+                    fontSize: 13,
+                    fontWeight: isCur ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+            );
+          }
+        }
+        return _buildFilterPill(
+          defaultLabel: 'Floor',
+          selectedLabel: _selectedFloorName,
+          isSelected: _selectedFloorId != null,
+          currentValue: _selectedFloorId,
+          items: items,
+          onChanged: (value) {
+            setState(() {
+              _selectedFloorId = value;
+              _selectedAreaId = null;
+              _selectedAreaName = null;
+              if (value == null) {
+                _selectedFloorName = null;
+              } else if (snapshot.hasData) {
+                final match = snapshot.data!.docs.firstWhere(
+                  (d) => d.id == value,
+                );
+                _selectedFloorName = (match.data() as Map)['name'];
+              }
+            });
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildAreaFilter() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _roomsStream,
+      builder: (context, snapshot) {
+        var items = <DropdownMenuItem<String>>[];
+        if (snapshot.hasData) {
+          items.add(
+            const DropdownMenuItem<String>(
+              value: null,
+              child: Text(
+                'All Areas',
+                style: TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          );
+          var docs = snapshot.data!.docs;
+          if (_selectedFloorId != null) {
+            docs =
+                docs
+                    .where(
+                      (d) => (d.data() as Map)['floorId'] == _selectedFloorId,
+                    )
+                    .toList();
+          }
+          for (var doc in docs) {
+            var data = doc.data() as Map<String, dynamic>;
+            final name = data['name'] ?? 'Area';
+            final isCur = doc.id == _selectedAreaId;
+            items.add(
+              DropdownMenuItem<String>(
+                value: doc.id,
+                child: Text(
+                  name,
+                  style: TextStyle(
+                    color:
+                        isCur
+                            ? const Color(0xFF3B66F5)
+                            : const Color(0xFF1E293B),
+                    fontSize: 13,
+                    fontWeight: isCur ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+            );
+          }
+        }
+        return _buildFilterPill(
+          defaultLabel: 'Area',
+          selectedLabel: _selectedAreaName,
+          isSelected: _selectedAreaId != null,
+          currentValue: _selectedAreaId,
+          items: items,
+          onChanged: (value) {
+            setState(() {
+              _selectedAreaId = value;
+              if (value == null) {
+                _selectedAreaName = null;
+              } else if (snapshot.hasData) {
+                final match = snapshot.data!.docs.firstWhere(
+                  (d) => d.id == value,
+                );
+                _selectedAreaName = (match.data() as Map)['name'];
+              }
+            });
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -196,78 +550,7 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
                       color: Color(0xFF0F172A),
                     ),
                   ),
-                  StreamBuilder<QuerySnapshot>(
-                    stream:
-                        _firestore
-                            .collection('notifications')
-                            .where(
-                              'userId',
-                              whereIn: [
-                                'all',
-                                FirebaseAuth.instance.currentUser?.uid ?? '',
-                              ],
-                            )
-                            .snapshots(),
-                    builder: (context, snapshot) {
-                      int count = 0;
-                      if (snapshot.hasData) {
-                        count = snapshot.data!.docs.length;
-                      }
-                      return GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            AppPageRoute(
-                              builder: (_) => const NotificationScreen(),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.grey.shade200),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              const Icon(
-                                Icons.notifications_none,
-                                color: Colors.black87,
-                                size: 22,
-                              ),
-                              if (count > 0)
-                                Positioned(
-                                  right: 10,
-                                  top: 10,
-                                  child: Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: BoxDecoration(
-                                      color: Colors.red,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Colors.white,
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                  const NotificationBellButton(),
                 ],
               ),
             ),
@@ -278,22 +561,59 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFFE2E8F0),
+                    width: 1.2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 child: TextField(
+                  controller: _searchController,
                   onChanged: (value) {
                     setState(() {
                       _searchQuery = value;
                     });
                   },
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF0F172A),
+                  ),
                   decoration: InputDecoration(
                     hintText: 'Search building, floor, seat...',
-                    hintStyle: TextStyle(
-                      color: Colors.grey.shade400,
+                    hintStyle: const TextStyle(
+                      color: Color(0xFF94A3B8),
                       fontSize: 14,
+                      fontWeight: FontWeight.normal,
                     ),
-                    prefixIcon: Icon(Icons.search, color: Colors.grey.shade600),
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      color: Color(0xFF64748B),
+                      size: 22,
+                    ),
+                    suffixIcon:
+                        _searchQuery.isNotEmpty
+                            ? IconButton(
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                size: 18,
+                                color: Color(0xFF94A3B8),
+                              ),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() {
+                                  _searchQuery = '';
+                                });
+                              },
+                            )
+                            : null,
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -309,188 +629,59 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20.0),
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
+                clipBehavior: Clip.none,
                 child: Row(
                   children: [
-                    // Building Filter
-                    StreamBuilder<QuerySnapshot>(
-                      stream: _buildingsStream,
-                      builder: (context, snapshot) {
-                        var items = <DropdownMenuItem<String>>[];
-                        if (snapshot.hasData) {
-                          items = [
-                            const DropdownMenuItem<String>(
-                              value: null,
-                              child: Text(
-                                'All Buildings',
-                                style: TextStyle(color: Colors.black87),
-                              ),
-                            ),
-                            ...snapshot.data!.docs.map((doc) {
-                              var data = doc.data() as Map<String, dynamic>;
-                              return DropdownMenuItem<String>(
-                                value: doc.id,
-                                child: Text(
-                                  data['name'] ?? 'Unnamed',
-                                  style: const TextStyle(color: Colors.black87),
-                                ),
-                              );
-                            }),
-                          ];
-                        }
-                        bool isSelected = _selectedBuildingId != null;
-                        return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color:
-                                isSelected
-                                    ? const Color(0xFF5C55F2)
-                                    : Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color:
-                                  isSelected
-                                      ? const Color(0xFF5C55F2)
-                                      : Colors.grey.shade200,
-                            ),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: _selectedBuildingId,
-                              items: items.isEmpty ? null : items,
-                              hint: Text(
-                                'Building',
-                                style: TextStyle(
-                                  color:
-                                      isSelected
-                                          ? Colors.white
-                                          : Colors.black87,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              icon: Icon(
-                                Icons.keyboard_arrow_down,
-                                size: 16,
-                                color:
-                                    isSelected ? Colors.white : Colors.black87,
-                              ),
-                              dropdownColor: Colors.white,
-                              style: TextStyle(
-                                color:
-                                    isSelected ? Colors.white : Colors.black87,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              onChanged:
-                                  snapshot.hasData
-                                      ? (value) {
-                                        setState(() {
-                                          _selectedBuildingId = value;
-                                          _selectedFloorId = null;
-                                        });
-                                      }
-                                      : null,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 10),
-                    // Floor Filter
-                    StreamBuilder<QuerySnapshot>(
-                      stream: _getFloorsStream(),
-                      builder: (context, snapshot) {
-                        var items = <DropdownMenuItem<String>>[];
-                        if (_selectedBuildingId != null && snapshot.hasData) {
-                          items = [
-                            const DropdownMenuItem<String>(
-                              value: null,
-                              child: Text(
-                                'All Floors',
-                                style: TextStyle(color: Colors.black87),
-                              ),
-                            ),
-                            ...snapshot.data!.docs.map((doc) {
-                              var data = doc.data() as Map<String, dynamic>;
-                              return DropdownMenuItem<String>(
-                                value: doc.id,
-                                child: Text(
-                                  data['name'] ?? 'Floor',
-                                  style: const TextStyle(color: Colors.black87),
-                                ),
-                              );
-                            }),
-                          ];
-                        }
-                        bool isSelected = _selectedFloorId != null;
-                        return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color:
-                                isSelected
-                                    ? const Color(0xFF5C55F2)
-                                    : Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color:
-                                  isSelected
-                                      ? const Color(0xFF5C55F2)
-                                      : Colors.grey.shade200,
-                            ),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: _selectedFloorId,
-                              items: items.isEmpty ? null : items,
-                              hint: Text(
-                                'Floor',
-                                style: TextStyle(
-                                  color:
-                                      isSelected
-                                          ? Colors.white
-                                          : Colors.black87,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              icon: Icon(
-                                Icons.keyboard_arrow_down,
-                                size: 16,
-                                color:
-                                    isSelected ? Colors.white : Colors.black87,
-                              ),
-                              dropdownColor: Colors.white,
-                              style: TextStyle(
-                                color:
-                                    isSelected ? Colors.white : Colors.black87,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              onChanged:
-                                  items.isNotEmpty
-                                      ? (value) {
-                                        setState(() {
-                                          _selectedFloorId = value;
-                                        });
-                                      }
-                                      : null,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                    _buildBuildingFilter(),
+                    const SizedBox(width: 8),
+                    _buildFloorFilter(),
+                    const SizedBox(width: 8),
+                    _buildAreaFilter(),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 24),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20.0),
-              child: Text(
-                'Available Areas',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A),
-                ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Available Areas',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  if (_selectedBuildingId != null ||
+                      _selectedFloorId != null ||
+                      _selectedAreaId != null ||
+                      _searchQuery.isNotEmpty)
+                    GestureDetector(
+                      onTap: _clearAllFilters,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          'Reset',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF3B66F5),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(height: 12),
@@ -525,6 +716,14 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
                           filteredRooms
                               .where(
                                 (room) => room['floorId'] == _selectedFloorId,
+                              )
+                              .toList();
+                    }
+                    if (_selectedAreaId != null) {
+                      filteredRooms =
+                          filteredRooms
+                              .where(
+                                (room) => room['roomId'] == _selectedAreaId,
                               )
                               .toList();
                     }
@@ -713,7 +912,7 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
         ),
       ),
       bottomNavigationBar: AppBottomNav(
-        currentIndex: 0,
+        currentIndex: -1,
         onTabSelected: _onNavTab,
       ),
     ),
