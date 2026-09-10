@@ -142,6 +142,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     'Manage Seats & QR',
     'Student Behavior',
     'Send Notification',
+    'Admin Profile',
   ];
 
   final List<IconData> _menuIcons = [
@@ -152,6 +153,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     Icons.event_seat,
     Icons.analytics,
     Icons.notifications_active,
+    Icons.person_rounded,
   ];
 
   @override
@@ -167,6 +169,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.account_circle),
+            tooltip: 'Admin Profile',
+            onPressed: () {
+              setState(() {
+                _selectedIndex = 7;
+              });
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Logout',
@@ -298,6 +309,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return const StudentBehaviorScreen();
       case 6:
         return const SendNotificationScreen();
+      case 7:
+        return const AdminProfileScreen();
       default:
         return const Center(
           child: Text(
@@ -3351,6 +3364,328 @@ class _StudentBehaviorScreenState extends State<StudentBehaviorScreen> {
                   },
                 );
               },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// 7. ADMIN PROFILE SCREEN
+// ============================================================
+class AdminProfileScreen extends StatefulWidget {
+  const AdminProfileScreen({super.key});
+
+  @override
+  State<AdminProfileScreen> createState() => _AdminProfileScreenState();
+}
+
+class _AdminProfileScreenState extends State<AdminProfileScreen> {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final User? _user = FirebaseAuth.instance.currentUser;
+
+  final TextEditingController _nameCtrl = TextEditingController();
+  final TextEditingController _emailCtrl = TextEditingController();
+  final TextEditingController _phoneCtrl = TextEditingController();
+
+  bool _isLoading = true;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAdminData();
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _emailCtrl.dispose();
+    _phoneCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadAdminData() async {
+    if (_user == null) return;
+    setState(() => _isLoading = true);
+    try {
+      DocumentSnapshot doc = await _firestore.collection('users').doc(_user.uid).get();
+      if (doc.exists && mounted) {
+        var data = doc.data() as Map<String, dynamic>;
+        _nameCtrl.text = data['fullName'] ?? _user.displayName ?? '';
+        _emailCtrl.text = data['email'] ?? _user.email ?? '';
+        _phoneCtrl.text = data['phone'] ?? '';
+      } else if (mounted) {
+        _nameCtrl.text = _user.displayName ?? '';
+        _emailCtrl.text = _user.email ?? '';
+      }
+    } catch (e) {
+      debugPrint('Error loading admin data: $e');
+    }
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  Future<void> _saveProfile() async {
+    if (_user == null) return;
+    if (_nameCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your full name')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      await _firestore.collection('users').doc(_user.uid).set({
+        'fullName': _nameCtrl.text.trim(),
+        'phone': _phoneCtrl.text.trim(),
+        'email': _emailCtrl.text.trim(),
+        'userType': 'admin',
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile updated successfully!'),
+            backgroundColor: EasySitColors.successFg,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating profile: $e'),
+            backgroundColor: EasySitColors.errorFg,
+          ),
+        );
+      }
+    }
+    if (mounted) setState(() => _isSaving = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: EasySitColors.primary),
+      );
+    }
+
+    String fullName = _nameCtrl.text.trim();
+    String initialLetter = fullName.isNotEmpty ? fullName[0].toUpperCase() : 'A';
+
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: ListView(
+        children: [
+          const Text(
+            'Admin Profile',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: EasySitColors.mainText,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Header Profile Card
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: EasySitColors.deepPurple,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 32,
+                  backgroundColor: EasySitColors.primary,
+                  child: Text(
+                    initialLetter,
+                    style: const TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        fullName.isNotEmpty ? fullName : 'Administrator',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _emailCtrl.text,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: EasySitColors.logoLavender,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: EasySitColors.successBg,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: EasySitColors.successBorder),
+                        ),
+                        child: const Text(
+                          'Administrator',
+                          style: TextStyle(
+                            color: EasySitColors.successFg,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Edit Profile Form Card
+          _buildEasySitCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Account Information',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: EasySitColors.mainText,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _nameCtrl,
+                  decoration: _buildEasySitInputDecoration(
+                    labelText: 'Full Name',
+                    prefixIcon: const Icon(Icons.person, color: EasySitColors.secondaryText),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _emailCtrl,
+                  enabled: false,
+                  decoration: _buildEasySitInputDecoration(
+                    labelText: 'Email Address (Read-only)',
+                    prefixIcon: const Icon(Icons.email, color: EasySitColors.secondaryText),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _phoneCtrl,
+                  keyboardType: TextInputType.phone,
+                  decoration: _buildEasySitInputDecoration(
+                    labelText: 'Phone Number',
+                    prefixIcon: const Icon(Icons.phone, color: EasySitColors.secondaryText),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: _isSaving ? null : _saveProfile,
+                    icon: _isSaving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.save, color: Colors.white, size: 18),
+                    label: Text(
+                      _isSaving ? 'Saving...' : 'Save Profile Changes',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: EasySitColors.primary,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Sign Out Card
+          _buildEasySitCard(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'Session Control',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: EasySitColors.mainText,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Sign out of your admin session',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: EasySitColors.secondaryText,
+                      ),
+                    ),
+                  ],
+                ),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    await FirebaseAuth.instance.signOut();
+                    if (context.mounted) {
+                      Navigator.pushReplacement(
+                        context,
+                        AppPageRoute(builder: (_) => const LoginScreen()),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.logout, color: EasySitColors.errorFg, size: 18),
+                  label: const Text(
+                    'Logout',
+                    style: TextStyle(color: EasySitColors.errorFg, fontWeight: FontWeight.bold),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: EasySitColors.errorBorder),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
