@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/app_colors.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   final String? initialIdentifier;
@@ -66,7 +67,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ),
           ],
         ),
-        backgroundColor: const Color(0xFFDC2626),
+        backgroundColor: EasySitColors.errorFg,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
@@ -260,8 +261,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
         ),
         centerTitle: true,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+        backgroundColor: EasySitColors.surface,
+        foregroundColor: EasySitColors.mainText,
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
@@ -280,11 +281,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   width: 90,
                   height: 90,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
+                    color: EasySitColors.primaryTint,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF0D6EFD).withValues(alpha: 0.12),
+                        color: EasySitColors.primary.withValues(alpha: 0.12),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
@@ -294,7 +295,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     child: Icon(
                       Icons.lock_reset_rounded,
                       size: 46,
-                      color: Color(0xFF0D6EFD),
+                      color: EasySitColors.primary,
                     ),
                   ),
                 ),
@@ -310,19 +311,19 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       fontFamily: 'Inter',
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B),
+                      color: EasySitColors.mainText,
                     ),
                   ),
                 ),
                 const SizedBox(height: 8),
-                Center(
+                const Center(
                   child: Text(
                     'Enter your registered email address or Student ID below to receive password reset instructions.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 14,
-                      color: Colors.grey.shade600,
+                      color: EasySitColors.secondaryText,
                       height: 1.4,
                     ),
                   ),
@@ -338,16 +339,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFEF2F2),
+                      color: EasySitColors.errorBg,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFFCA5A5)),
+                      border: Border.all(color: EasySitColors.errorBorder),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Icon(
                           Icons.error_outline_rounded,
-                          color: Color(0xFFDC2626),
+                          color: EasySitColors.errorFg,
                           size: 20,
                         ),
                         const SizedBox(width: 8),
@@ -356,7 +357,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             _errorMessage,
                             style: const TextStyle(
                               fontFamily: 'Inter',
-                              color: Color(0xFFDC2626),
+                              color: EasySitColors.errorFg,
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                             ),
@@ -374,29 +375,33 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.done,
                   onSubmitted: (_) => _handlePasswordReset(),
+                  style: const TextStyle(color: EasySitColors.mainText),
                   decoration: InputDecoration(
                     labelText: 'Email Address or Student ID',
+                    labelStyle: const TextStyle(color: EasySitColors.bodyText),
                     hintText: 'e.g. name@gmail.com or CT20xxxxx',
+                    hintStyle: const TextStyle(color: EasySitColors.secondaryText),
                     helperText:
                         'You can use either your Gmail or your Student ID',
+                    helperStyle: const TextStyle(color: EasySitColors.secondaryText),
                     filled: true,
-                    fillColor: Colors.grey.shade50,
+                    fillColor: EasySitColors.surface,
                     prefixIcon: const Icon(
                       Icons.alternate_email_rounded,
-                      color: Color(0xFF0D6EFD),
+                      color: EasySitColors.primary,
                     ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(color: Colors.grey.shade200),
+                      borderSide: const BorderSide(color: EasySitColors.divider),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(color: Colors.grey.shade200),
+                      borderSide: const BorderSide(color: EasySitColors.divider),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
                       borderSide: const BorderSide(
-                        color: Color(0xFF0D6EFD),
+                        color: EasySitColors.primary,
                         width: 2,
                       ),
                     ),
@@ -411,7 +416,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _handlePasswordReset,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0D6EFD),
+                      backgroundColor: EasySitColors.primary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -430,7 +435,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             'Send Reset Instructions',
                             style: TextStyle(
                               fontFamily: 'Inter',
-                              color: Colors.white,
+                              color: EasySitColors.onPrimary,
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
@@ -443,26 +448,26 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
+                    color: EasySitColors.subtleSurface,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.grey.shade200),
+                    border: Border.all(color: EasySitColors.divider),
                   ),
-                  child: Row(
+                  child: const Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.info_outline_rounded,
-                        color: Color(0xFF64748B),
+                        color: EasySitColors.secondaryText,
                         size: 20,
                       ),
-                      const SizedBox(width: 10),
+                      SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           'Need quick assistance? You can also visit the library help desk or contact an admin to verify your account credentials.',
                           style: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 13,
-                            color: Colors.grey.shade700,
+                            color: EasySitColors.bodyText,
                             height: 1.4,
                           ),
                         ),
@@ -476,21 +481,21 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF0FDF4),
+                    color: EasySitColors.successBg,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFFBBF7D0)),
+                    border: Border.all(color: EasySitColors.successBorder),
                   ),
                   child: Column(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(12),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFDCFCE7),
+                        decoration: BoxDecoration(
+                          color: EasySitColors.successBorder.withValues(alpha: 0.4),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
                           Icons.check_circle_rounded,
-                          color: Color(0xFF16A34A),
+                          color: EasySitColors.successFg,
                           size: 40,
                         ),
                       ),
@@ -501,7 +506,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           fontFamily: 'Inter',
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF166534),
+                          color: EasySitColors.successFg,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -511,7 +516,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 14,
-                          color: Color(0xFF15803D),
+                          color: EasySitColors.successFg,
                           height: 1.5,
                         ),
                       ),
@@ -532,7 +537,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       });
                     },
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFF0D6EFD)),
+                      side: const BorderSide(color: EasySitColors.primary),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -541,7 +546,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       'Resend or Try Another Email',
                       style: TextStyle(
                         fontFamily: 'Inter',
-                        color: Color(0xFF0D6EFD),
+                        color: EasySitColors.primary,
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                       ),
@@ -557,7 +562,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   child: ElevatedButton(
                     onPressed: () => Navigator.pop(context),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0D6EFD),
+                      backgroundColor: EasySitColors.primary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -567,7 +572,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       'Return to Login',
                       style: TextStyle(
                         fontFamily: 'Inter',
-                        color: Colors.white,
+                        color: EasySitColors.onPrimary,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -585,13 +590,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     icon: const Icon(
                       Icons.arrow_back_rounded,
                       size: 18,
-                      color: Color(0xFF0D6EFD),
+                      color: EasySitColors.primary,
                     ),
                     label: const Text(
                       'Back to Login',
                       style: TextStyle(
                         fontFamily: 'Inter',
-                        color: Color(0xFF0D6EFD),
+                        color: EasySitColors.primary,
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
                       ),

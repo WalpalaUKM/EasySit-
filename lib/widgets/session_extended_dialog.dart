@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../navigator_key.dart';
+import '../utils/app_colors.dart';
 
 class SessionExtendedDialog extends StatelessWidget {
   final int minutes;
@@ -38,7 +39,7 @@ class SessionExtendedDialog extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
-          backgroundColor: Colors.white,
+          backgroundColor: EasySitColors.surface,
           elevation: 10,
           insetPadding: const EdgeInsets.symmetric(
             horizontal: 28,
@@ -56,14 +57,15 @@ class SessionExtendedDialog extends StatelessWidget {
                   width: 68,
                   height: 68,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2ECA7F).withValues(alpha: 0.12),
+                    color: EasySitColors.successBg,
                     shape: BoxShape.circle,
+                    border: Border.all(color: EasySitColors.successBorder),
                   ),
                   child: const Center(
                     child: Icon(
                       Icons.more_time_rounded,
                       size: 36,
-                      color: Color(0xFF2ECA7F),
+                      color: EasySitColors.success,
                     ),
                   ),
                 ),
@@ -75,17 +77,17 @@ class SessionExtendedDialog extends StatelessWidget {
                     fontFamily: 'Inter',
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
+                    color: EasySitColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 10),
                 Text(
                   'Your session has been successfully extended by $minutes minutes.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 14,
-                    color: Colors.grey.shade600,
+                    color: EasySitColors.textSecondary,
                     height: 1.4,
                   ),
                 ),
@@ -96,8 +98,9 @@ class SessionExtendedDialog extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE8F8F0),
+                    color: EasySitColors.successBg,
                     borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: EasySitColors.successBorder),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -105,7 +108,7 @@ class SessionExtendedDialog extends StatelessWidget {
                       const Icon(
                         Icons.check_circle_rounded,
                         size: 16,
-                        color: Color(0xFF2ECA7F),
+                        color: EasySitColors.success,
                       ),
                       const SizedBox(width: 6),
                       Text(
@@ -113,7 +116,7 @@ class SessionExtendedDialog extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF2ECA7F),
+                          color: EasySitColors.success,
                         ),
                       ),
                     ],

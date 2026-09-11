@@ -7,6 +7,7 @@ import 'profile_screen.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/swipe_navigation_wrapper.dart';
 import '../utils/app_page_route.dart';
+import '../utils/app_colors.dart';
 import '../widgets/notification_bell_button.dart';
 import '../widgets/realtime_room_card.dart';
 import '../services/seat_expiry_service.dart';
@@ -161,22 +162,22 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
         lower.contains('silent') ||
         lower.contains('reading')) {
       return {
-        'color': const Color(0xFFE8F5E9),
-        'iconColor': const Color(0xFF2E7D32),
+        'color': EasySitColors.areaSilentBg,
+        'iconColor': EasySitColors.areaSilentFg,
         'icon': Icons.menu_book_rounded,
       };
     } else if (lower.contains('group') ||
         lower.contains('collab') ||
         lower.contains('discussion')) {
       return {
-        'color': const Color(0xFFF3E5F5),
-        'iconColor': const Color(0xFF7B1FA2),
+        'color': EasySitColors.areaGroupBg,
+        'iconColor': EasySitColors.areaGroupFg,
         'icon': Icons.groups_rounded,
       };
     } else {
       return {
-        'color': const Color(0xFFFFF8E1),
-        'iconColor': const Color(0xFFF57F17),
+        'color': EasySitColors.areaLabBg,
+        'iconColor': EasySitColors.areaLabFg,
         'icon': Icons.apartment_rounded,
       };
     }
@@ -219,22 +220,19 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
       decoration: BoxDecoration(
         color:
             effectiveSelected
-                ? const Color(0xFF3B66F5)
-                : const Color(0xFFF1F4F9),
+                ? EasySitColors.primary
+                : EasySitColors.subtleSurface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color:
               effectiveSelected
-                  ? const Color(0xFF3B66F5)
-                  : const Color(0xFFE2E8F0),
+                  ? EasySitColors.primary
+                  : EasySitColors.divider,
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color:
-                effectiveSelected
-                    ? const Color(0xFF3B66F5).withValues(alpha: 0.30)
-                    : Colors.black.withValues(alpha: 0.04),
+            color: EasySitColors.cardShadow,
             blurRadius: effectiveSelected ? 8 : 4,
             offset: Offset(0, effectiveSelected ? 2 : 1),
           ),
@@ -245,7 +243,7 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
           value: effectiveValue,
           isDense: true,
           borderRadius: BorderRadius.circular(16),
-          dropdownColor: Colors.white,
+          dropdownColor: EasySitColors.surface,
           elevation: 4,
           menuMaxHeight: 300,
           iconSize: 18,
@@ -256,15 +254,15 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
               size: 18,
               color:
                   effectiveSelected
-                      ? Colors.white
-                      : const Color(0xFF64748B),
+                      ? EasySitColors.onPrimary
+                      : EasySitColors.secondaryText,
             ),
           ),
           hint: Text(
             defaultLabel,
             style: const TextStyle(
               fontFamily: 'Inter',
-              color: Color(0xFF1E293B),
+              color: EasySitColors.textPrimary,
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
@@ -284,8 +282,8 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
                             fontFamily: 'Inter',
                             color:
                                 effectiveSelected
-                                    ? Colors.white
-                                    : const Color(0xFF1E293B),
+                                    ? EasySitColors.onPrimary
+                                    : EasySitColors.textPrimary,
                             fontSize: 13,
                             fontWeight:
                                 effectiveSelected
@@ -317,7 +315,7 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
               child: Text(
                 'All Buildings',
                 style: TextStyle(
-                  color: Color(0xFF64748B),
+                  color: EasySitColors.secondaryText,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                 ),
@@ -337,8 +335,8 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
                   style: TextStyle(
                     color:
                         isCur
-                            ? const Color(0xFF3B66F5)
-                            : const Color(0xFF1E293B),
+                            ? EasySitColors.primary
+                            : EasySitColors.textPrimary,
                     fontSize: 13,
                     fontWeight: isCur ? FontWeight.w600 : FontWeight.normal,
                   ),
@@ -389,7 +387,7 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
               child: Text(
                 'All Floors',
                 style: TextStyle(
-                  color: Color(0xFF64748B),
+                  color: EasySitColors.secondaryText,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                 ),
@@ -409,8 +407,8 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
                   style: TextStyle(
                     color:
                         isCur
-                            ? const Color(0xFF3B66F5)
-                            : const Color(0xFF1E293B),
+                            ? EasySitColors.primary
+                            : EasySitColors.textPrimary,
                     fontSize: 13,
                     fontWeight: isCur ? FontWeight.w600 : FontWeight.normal,
                   ),
@@ -459,7 +457,7 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
               child: Text(
                 'All Areas',
                 style: TextStyle(
-                  color: Color(0xFF64748B),
+                  color: EasySitColors.secondaryText,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                 ),
@@ -488,8 +486,8 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
                   style: TextStyle(
                     color:
                         isCur
-                            ? const Color(0xFF3B66F5)
-                            : const Color(0xFF1E293B),
+                            ? EasySitColors.primary
+                            : EasySitColors.textPrimary,
                     fontSize: 13,
                     fontWeight: isCur ? FontWeight.w600 : FontWeight.normal,
                   ),
@@ -556,7 +554,7 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
           }
         },
         child: Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: EasySitColors.appBackground,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -572,7 +570,7 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
+                      color: EasySitColors.textPrimary,
                     ),
                   ),
                   const NotificationBellButton(),
@@ -585,15 +583,15 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: EasySitColors.surface,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: const Color(0xFFE2E8F0),
+                    color: EasySitColors.divider,
                     width: 1.2,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
+                      color: EasySitColors.cardShadow,
                       blurRadius: 10,
                       offset: const Offset(0, 3),
                     ),
@@ -609,18 +607,18 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF0F172A),
+                    color: EasySitColors.textPrimary,
                   ),
                   decoration: InputDecoration(
                     hintText: 'Search building, floor, seat...',
                     hintStyle: const TextStyle(
-                      color: Color(0xFF94A3B8),
+                      color: EasySitColors.secondaryText,
                       fontSize: 14,
                       fontWeight: FontWeight.normal,
                     ),
                     prefixIcon: const Icon(
                       Icons.search_rounded,
-                      color: Color(0xFF64748B),
+                      color: EasySitColors.secondaryText,
                       size: 22,
                     ),
                     suffixIcon:
@@ -629,7 +627,7 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
                               icon: const Icon(
                                 Icons.close_rounded,
                                 size: 18,
-                                color: Color(0xFF94A3B8),
+                                color: EasySitColors.secondaryText,
                               ),
                               onPressed: () {
                                 _searchController.clear();
@@ -678,7 +676,7 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
                       fontFamily: 'Inter',
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
+                      color: EasySitColors.textPrimary,
                     ),
                   ),
                   if (_selectedBuildingId != null ||
@@ -693,7 +691,7 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
+                          color: EasySitColors.primaryTint,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Text(
@@ -701,7 +699,7 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF3B66F5),
+                            color: EasySitColors.primary,
                           ),
                         ),
                       ),
@@ -717,10 +715,10 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting &&
                       !snapshot.hasData) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const Center(child: CircularProgressIndicator(color: EasySitColors.primary));
                   }
                   if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}'));
+                    return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: EasySitColors.error)));
                   }
 
                   List<Map<String, dynamic>> filteredRooms = [];
@@ -781,19 +779,19 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.search_off, size: 72, color: Colors.grey),
+                          Icon(Icons.search_off, size: 72, color: EasySitColors.secondaryText),
                           SizedBox(height: 16),
                           Text(
                             'No areas found',
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w600,
-                              color: Colors.grey,
+                              color: EasySitColors.secondaryText,
                             ),
                           ),
                           Text(
                             'Try adjusting your filters',
-                            style: TextStyle(fontSize: 14, color: Colors.grey),
+                            style: TextStyle(fontSize: 14, color: EasySitColors.secondaryText),
                           ),
                         ],
                       ),
@@ -815,7 +813,7 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
                         showSeatsWord: false,
                         customShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
+                            color: EasySitColors.cardShadow,
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),

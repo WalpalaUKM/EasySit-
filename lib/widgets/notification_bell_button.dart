@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../screens/notification_screen.dart';
 import '../utils/app_page_route.dart';
+import '../utils/app_colors.dart';
 import '../services/notification_service.dart';
 
 class NotificationBellButton extends StatelessWidget {
@@ -131,23 +132,17 @@ class NotificationBellButton extends StatelessWidget {
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: EasySitColors.surface,
           shape: BoxShape.circle,
-          border: Border.all(color: Colors.grey.shade200),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          border: Border.all(color: EasySitColors.divider),
+          boxShadow: EasySitColors.cardShadows,
         ),
         child: Stack(
           alignment: Alignment.center,
           children: [
             const Icon(
               Icons.notifications_none,
-              color: Colors.black87,
+              color: EasySitColors.textPrimary,
               size: 22,
             ),
             if (hasUnread)
@@ -158,10 +153,10 @@ class NotificationBellButton extends StatelessWidget {
                   width: 8,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: Colors.red,
+                    color: EasySitColors.error,
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: Colors.white,
+                      color: EasySitColors.surface,
                       width: 1.5,
                     ),
                   ),

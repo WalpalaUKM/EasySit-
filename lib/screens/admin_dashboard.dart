@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -13,75 +14,21 @@ import 'login_screen.dart';
 import '../utils/app_page_route.dart';
 import '../services/auth_persistence_service.dart';
 
-// ============================================================
-// EASYSIT DESIGN PALETTE (From Guidelines Document)
-// ============================================================
-class EasySitColors {
-  // Brand & Identity
-  static const Color primary = Color(0xFF386CD1);       // Logo blue - primary action & active nav
-  static const Color deepPurple = Color(0xFF29234F);    // Deep purple - logo backdrop & headers
-  static const Color logoLavender = Color(0xFFB5BBDB);  // Easy text on dark logo bg
-  static const Color mutedLavender = Color(0xFF989CBC); // Tagline on dark
-
-  // Interactive States
-  static const Color hover = Color(0xFF2E5DB8);
-  static const Color pressed = Color(0xFF254D9B);
-  static const Color focusRing = Color(0xFF254D9B);
-  static const Color primaryTint = Color(0xFFEDF3FF);   // Selected navigation & filter bg
-  static const Color softBlueBorder = Color(0xFFBED0F5);
-  static const Color purpleAccent = Color(0xFF6D28D9);
-  static const Color accentTint = Color(0xFFF3EEFF);
-
-  // Surfaces & Backgrounds
-  static const Color appBackground = Color(0xFFF7F8FC); // Main screen background
-  static const Color surface = Color(0xFFFFFFFF);       // Cards, drawer, dialogs & fields
-  static const Color subtleSurface = Color(0xFFF1F5F9); // Secondary panels & icon containers
-
-  // Typography & Boundaries
-  static const Color mainText = Color(0xFF0F172A);      // Titles, key values
-  static const Color bodyText = Color(0xFF334155);      // Descriptions & field labels
-  static const Color secondaryText = Color(0xFF64748B); // Helper text, timestamps, placeholders
-  static const Color divider = Color(0xFFE2E8F0);       // Subtle card edges & separators
-  static const Color inputBorder = Color(0xFF7C899D);   // Editable field boundaries
-  static const Color disabledFill = Color(0xFFE2E8F0);
-  static const Color disabledText = Color(0xFF64748B);
-
-  // Feedback & Statuses
-  // Success / Available / Active
-  static const Color successFg = Color(0xFF15803D);
-  static const Color successBg = Color(0xFFF0FDF4);
-  static const Color successBorder = Color(0xFFBBF7D0);
-
-  // Warning / Pending
-  static const Color warningFg = Color(0xFFB45309);
-  static const Color warningBg = Color(0xFFFFFBEB);
-  static const Color warningBorder = Color(0xFFFDE68A);
-
-  // Error / Blocked / Destructive
-  static const Color errorFg = Color(0xFFB91C1C);
-  static const Color errorBg = Color(0xFFFEF2F2);
-  static const Color errorBorder = Color(0xFFFECACA);
-
-  // Information
-  static const Color infoFg = Color(0xFF386CD1);
-  static const Color infoBg = Color(0xFFEDF3FF);
-  static const Color infoBorder = Color(0xFFBED0F5);
-
-  // Booked / Occupied
-  static const Color bookedFg = Color(0xFF475569);
-  static const Color bookedBg = Color(0xFFE2E8F0);
-}
+import '../utils/app_colors.dart';
 
 // Shared UI Helpers
 InputDecoration _buildEasySitInputDecoration({
   required String labelText,
   String? hintText,
   Widget? prefixIcon,
+  String? errorText,
 }) {
   return InputDecoration(
     labelText: labelText,
     hintText: hintText,
     prefixIcon: prefixIcon,
+    errorText: errorText,
+    errorStyle: const TextStyle(color: EasySitColors.errorFg, fontSize: 12),
     labelStyle: const TextStyle(color: EasySitColors.bodyText, fontSize: 14),
     hintStyle: const TextStyle(color: EasySitColors.secondaryText, fontSize: 14),
     filled: true,
@@ -1794,6 +1741,55 @@ class _ManageRoomsScreenState extends State<ManageRoomsScreen> {
   }
 }
 
+bool isSeatNumberDuplicate(String seatNum, Iterable<String> existingNumbers) {
+  final trimmed = seatNum.trim();
+  if (trimmed.isEmpty) return false;
+  final numVal = int.tryParse(trimmed);
+  for (final existing in existingNumbers) {
+    final existingTrimmed = existing.trim();
+    if (existingTrimmed == trimmed) return true;
+    if (numVal != null) {
+      final existingNum = int.tryParse(existingTrimmed);
+      if (existingNum != null && existingNum == numVal) return true;
+    }
+  }
+  return false;
+}
+
+List<int>? parseBulkSeatInput(String input, Iterable<String> existingNumbers) {
+  final text = input.trim();
+  if (text.isEmpty) return null;
+
+  final rangeRegex = RegExp(r'^(\d+)\s*(?:-|–|—|to)\s*(\d+)$', caseSensitive: false);
+  final match = rangeRegex.firstMatch(text);
+  if (match != null) {
+    int start = int.parse(match.group(1)!);
+    int end = int.parse(match.group(2)!);
+    if (start <= 0 || end <= 0 || start > end) {
+      return null;
+    }
+    if (end - start + 1 > 500) {
+      return null;
+    }
+    return [for (int i = start; i <= end; i++) i];
+  }
+
+  final count = int.tryParse(text);
+  if (count != null && count > 0 && count <= 500) {
+    int maxExisting = 0;
+    for (final s in existingNumbers) {
+      final val = int.tryParse(s.trim());
+      if (val != null && val > maxExisting) {
+        maxExisting = val;
+      }
+    }
+    int startNumber = maxExisting + 1;
+    return [for (int i = 0; i < count; i++) startNumber + i];
+  }
+
+  return null;
+}
+
 // ============================================================
 // 4. MANAGE SEATS & QR SCREEN
 // ============================================================
@@ -1813,6 +1809,43 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
   bool _isLoading = false;
   final Set<String> _downloadingSeats = {};
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  Set<String> _existingSeatNumbers = {};
+  StreamSubscription<QuerySnapshot>? _seatsSubscription;
+  String? _singleSeatError;
+  String? _bulkSeatError;
+
+  void _onRoomChanged(String? roomId) {
+    _seatsSubscription?.cancel();
+    _existingSeatNumbers.clear();
+    setState(() {
+      _selectedRoomId = roomId;
+      _singleSeatError = null;
+      _bulkSeatError = null;
+    });
+    if (roomId != null) {
+      _seatsSubscription = _firestore
+          .collection('seats')
+          .where('roomId', isEqualTo: roomId)
+          .snapshots()
+          .listen((snapshot) {
+        if (mounted) {
+          setState(() {
+            _existingSeatNumbers = snapshot.docs.map((doc) {
+              final data = doc.data();
+              return (data['seatNumber'] ?? '').toString().trim();
+            }).where((s) => s.isNotEmpty).toSet();
+          });
+        }
+      });
+    }
+  }
+
+  bool _isSeatNumberDuplicate(String seatNum, Iterable<String> existingNumbers) =>
+      isSeatNumberDuplicate(seatNum, existingNumbers);
+
+  List<int>? _parseBulkInput(String input, Iterable<String> existingNumbers) =>
+      parseBulkSeatInput(input, existingNumbers);
 
   // QR Code Image Generation Function
   Future<Uint8List?> _generateQrImageBytes(String data) async {
@@ -1927,39 +1960,91 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
       );
       return;
     }
-    int count = int.tryParse(_bulkCountController.text) ?? 0;
-    if (count <= 0) {
+    String bulkInput = _bulkCountController.text.trim();
+    if (bulkInput.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid seat count!')),
+        const SnackBar(content: Text('Enter a seat count or range!')),
+      );
+      return;
+    }
+
+    final seatsToAdd = _parseBulkInput(bulkInput, _existingSeatNumbers);
+    if (seatsToAdd == null || seatsToAdd.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid seat count (e.g. 10) or range (e.g. 11-20)!')),
+      );
+      return;
+    }
+
+    // 1. UI Check: Check if any seat number already exists in this room
+    bool hasDuplicate = seatsToAdd.any((seat) => _isSeatNumberDuplicate(seat.toString(), _existingSeatNumbers));
+    if (hasDuplicate) {
+      setState(() {
+        _bulkSeatError = 'This seat number already exists in this room.';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This seat number already exists in this room.'),
+          backgroundColor: EasySitColors.errorFg,
+        ),
       );
       return;
     }
 
     setState(() => _isLoading = true);
     try {
-      QuerySnapshot existingSeats =
-          await _firestore
-              .collection('seats')
-              .where('roomId', isEqualTo: _selectedRoomId)
-              .get();
+      // 2. Database Check: Query Firestore directly for existing seats in room
+      QuerySnapshot existingInDb = await _firestore
+          .collection('seats')
+          .where('roomId', isEqualTo: _selectedRoomId)
+          .get();
 
-      int startNumber = existingSeats.docs.length + 1;
+      Set<String> dbSeatNumbers = existingInDb.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return (data['seatNumber'] ?? '').toString().trim();
+      }).where((s) => s.isNotEmpty).toSet();
 
-      for (int i = 0; i < count; i++) {
-        int seatNum = startNumber + i;
-        DocumentReference docRef = await _firestore.collection('seats').add({
+      _existingSeatNumbers.addAll(dbSeatNumbers);
+
+      final finalSeatsToAdd = _parseBulkInput(bulkInput, dbSeatNumbers) ?? seatsToAdd;
+
+      bool hasDbDuplicate = finalSeatsToAdd.any((seat) => _isSeatNumberDuplicate(seat.toString(), dbSeatNumbers));
+      if (hasDbDuplicate) {
+        setState(() {
+          _bulkSeatError = 'This seat number already exists in this room.';
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('This seat number already exists in this room.'),
+              backgroundColor: EasySitColors.errorFg,
+            ),
+          );
+        }
+        return;
+      }
+
+      WriteBatch batch = _firestore.batch();
+      for (int seatNum in finalSeatsToAdd) {
+        DocumentReference docRef = _firestore.collection('seats').doc();
+        batch.set(docRef, {
           'roomId': _selectedRoomId,
           'seatNumber': seatNum.toString(),
           'status': 'available',
           'createdAt': FieldValue.serverTimestamp(),
+          'qrData': 'SEAT:${docRef.id}',
         });
-        await docRef.update({'qrData': 'SEAT:${docRef.id}'});
       }
+      await batch.commit();
+
       _bulkCountController.clear();
+      setState(() {
+        _bulkSeatError = null;
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('$count seats added!'),
+            content: Text('${finalSeatsToAdd.length} seats added!'),
             backgroundColor: EasySitColors.successFg,
           ),
         );
@@ -1973,8 +2058,9 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
           ),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-    setState(() => _isLoading = false);
   }
 
   Future<void> _addSingleSeat() async {
@@ -1992,8 +2078,50 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
       return;
     }
 
+    // 1. UI Check against live cached existing seats in this room
+    if (_isSeatNumberDuplicate(seatNumber, _existingSeatNumbers)) {
+      setState(() {
+        _singleSeatError = 'This seat number already exists in this room.';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This seat number already exists in this room.'),
+          backgroundColor: EasySitColors.errorFg,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
+      // 2. Database Check: Query Firestore directly for existing seats in room
+      QuerySnapshot existingInDb = await _firestore
+          .collection('seats')
+          .where('roomId', isEqualTo: _selectedRoomId)
+          .get();
+
+      Set<String> dbSeatNumbers = existingInDb.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return (data['seatNumber'] ?? '').toString().trim();
+      }).where((s) => s.isNotEmpty).toSet();
+
+      _existingSeatNumbers.addAll(dbSeatNumbers);
+
+      if (_isSeatNumberDuplicate(seatNumber, dbSeatNumbers)) {
+        setState(() {
+          _singleSeatError = 'This seat number already exists in this room.';
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('This seat number already exists in this room.'),
+              backgroundColor: EasySitColors.errorFg,
+            ),
+          );
+        }
+        return;
+      }
+
       DocumentReference docRef = await _firestore.collection('seats').add({
         'roomId': _selectedRoomId,
         'seatNumber': seatNumber,
@@ -2002,6 +2130,9 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
       });
       await docRef.update({'qrData': 'SEAT:${docRef.id}'});
       _singleSeatController.clear();
+      setState(() {
+        _singleSeatError = null;
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -2019,8 +2150,9 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
           ),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-    setState(() => _isLoading = false);
   }
 
   Future<void> _deleteSeat(String seatId) async {
@@ -2414,8 +2546,8 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
                         setState(() {
                           _selectedBuildingId = value;
                           _selectedFloorId = null;
-                          _selectedRoomId = null;
                         });
+                        _onRoomChanged(null);
                       },
                       hint: const Text('Select Building', style: TextStyle(color: EasySitColors.secondaryText)),
                     );
@@ -2471,8 +2603,8 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
                       onChanged: (value) {
                         setState(() {
                           _selectedFloorId = value;
-                          _selectedRoomId = null;
                         });
+                        _onRoomChanged(null);
                       },
                       hint: const Text('Select Floor', style: TextStyle(color: EasySitColors.secondaryText)),
                     );
@@ -2526,9 +2658,7 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
                         prefixIcon: const Icon(Icons.door_front_door, color: EasySitColors.secondaryText),
                       ),
                       onChanged: (value) {
-                        setState(() {
-                          _selectedRoomId = value;
-                        });
+                        _onRoomChanged(value);
                       },
                       hint: const Text('Select Room', style: TextStyle(color: EasySitColors.secondaryText)),
                     );
@@ -2548,15 +2678,35 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
                 ),
                 const SizedBox(height: 10),
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(
-                      width: 140,
+                    Expanded(
                       child: TextField(
                         controller: _bulkCountController,
-                        keyboardType: TextInputType.number,
+                        keyboardType: TextInputType.text,
                         decoration: _buildEasySitInputDecoration(
-                          labelText: 'Seat Count',
+                          labelText: 'Seat Count / Range',
+                          hintText: 'e.g. 10 or 8-15',
+                          errorText: _bulkSeatError,
                         ),
+                        onChanged: (val) {
+                          if (val.trim().isNotEmpty && _selectedRoomId != null) {
+                            final seats = _parseBulkInput(val, _existingSeatNumbers);
+                            if (seats != null &&
+                                seats.any((seat) =>
+                                    _isSeatNumberDuplicate(seat.toString(), _existingSeatNumbers))) {
+                              setState(() {
+                                _bulkSeatError = 'This seat number already exists in this room.';
+                              });
+                              return;
+                            }
+                          }
+                          if (_bulkSeatError != null) {
+                            setState(() {
+                              _bulkSeatError = null;
+                            });
+                          }
+                        },
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -2599,14 +2749,31 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
                 ),
                 const SizedBox(height: 10),
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(
-                      width: 140,
+                    Expanded(
                       child: TextField(
                         controller: _singleSeatController,
+                        keyboardType: TextInputType.text,
                         decoration: _buildEasySitInputDecoration(
                           labelText: 'Seat Number',
+                          hintText: 'e.g. 11',
+                          errorText: _singleSeatError,
                         ),
+                        onChanged: (val) {
+                          final trimmed = val.trim();
+                          if (trimmed.isNotEmpty &&
+                              _selectedRoomId != null &&
+                              _isSeatNumberDuplicate(trimmed, _existingSeatNumbers)) {
+                            setState(() {
+                              _singleSeatError = 'This seat number already exists in this room.';
+                            });
+                          } else if (_singleSeatError != null) {
+                            setState(() {
+                              _singleSeatError = null;
+                            });
+                          }
+                        },
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -2864,6 +3031,7 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
 
   @override
   void dispose() {
+    _seatsSubscription?.cancel();
     _bulkCountController.dispose();
     _singleSeatController.dispose();
     super.dispose();

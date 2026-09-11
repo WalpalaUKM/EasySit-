@@ -13,6 +13,7 @@ import 'services/session_watcher.dart';
 import 'package:flutter/services.dart';
 import 'navigator_key.dart';
 import 'utils/app_page_route.dart';
+import 'utils/app_colors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -48,7 +49,13 @@ class EasySitApp extends StatelessWidget {
           navigatorKey: navigatorKey,
           title: 'EasySit',
           theme: ThemeData(
-            primarySwatch: Colors.blue,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: EasySitColors.primary,
+              primary: EasySitColors.primary,
+              surface: EasySitColors.surface,
+              surfaceContainerLowest: EasySitColors.appBackground,
+            ),
+            scaffoldBackgroundColor: EasySitColors.appBackground,
             useMaterial3: true,
             pageTransitionsTheme: const PageTransitionsTheme(
               builders: {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'realtime_room_card.dart';
+import '../utils/app_colors.dart';
 
 class BuildingRoomsSection extends StatefulWidget {
   final String buildingId;
@@ -118,7 +119,10 @@ class _BuildingRoomsSectionState extends State<BuildingRoomsSection> {
           child: SizedBox(
             width: 24,
             height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2),
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(EasySitColors.primary),
+            ),
           ),
         ),
       );
