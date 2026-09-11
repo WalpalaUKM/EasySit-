@@ -673,85 +673,64 @@ class _SessionScreenState extends State<SessionScreen>
 
   @override
   Widget build(BuildContext context) {
-    final scaffold = Container(
-      decoration: const BoxDecoration(
-        gradient: EasySitColors.studentHeaderGradient,
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          toolbarHeight: 84,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          surfaceTintColor: Colors.transparent,
-          automaticallyImplyLeading: false,
-          backgroundColor: Colors.transparent,
-          systemOverlayStyle: const SystemUiOverlayStyle(
-            statusBarColor: Colors.transparent,
-            statusBarIconBrightness: Brightness.dark,
-            statusBarBrightness: Brightness.light,
-          ),
-          titleSpacing: 20,
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                _activeBooking == null
-                    ? 'My session'
-                    : (_bookingStatus == 'pending'
-                        ? 'Pending Confirmation'
-                        : "You're all set"),
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: EasySitColors.textPrimary,
-                ),
+    final scaffold = Scaffold(
+      backgroundColor: EasySitColors.appBackground,
+      appBar: AppBar(
+        toolbarHeight: 84,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        automaticallyImplyLeading: false,
+        backgroundColor: EasySitColors.screenHeaderBackground,
+        systemOverlayStyle: const SystemUiOverlayStyle(
+          statusBarColor: EasySitColors.screenHeaderBackground,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
+        titleSpacing: 20,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              _activeBooking == null
+                  ? 'My session'
+                  : (_bookingStatus == 'pending'
+                      ? 'Pending Confirmation'
+                      : "You're all set"),
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: EasySitColors.textPrimary,
               ),
-              const SizedBox(height: 4),
-              Text(
-                _activeBooking == null
-                    ? 'No active session'
-                    : (_bookingStatus == 'pending'
-                        ? 'Please scan the QR on the seat'
-                        : 'Your session has started successfully'),
-                style: const TextStyle(
-                  color: EasySitColors.secondaryText,
-                  fontSize: 13,
-                  fontWeight: FontWeight.normal,
-                ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _activeBooking == null
+                  ? 'No active session'
+                  : (_bookingStatus == 'pending'
+                      ? 'Please scan the QR on the seat'
+                      : 'Your session has started successfully'),
+              style: const TextStyle(
+                color: EasySitColors.secondaryText,
+                fontSize: 13,
+                fontWeight: FontWeight.normal,
               ),
-            ],
-          ),
-          actions: const [
-            NotificationBellButton(),
-            SizedBox(width: 20),
+            ),
           ],
         ),
-        body: Container(
-          width: double.infinity,
-          decoration: const BoxDecoration(
-            color: EasySitColors.appBackground,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(28),
-              topRight: Radius.circular(28),
-            ),
-          ),
-          child: ClipRRect(
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(28),
-              topRight: Radius.circular(28),
-            ),
-            child: _buildBody(),
-          ),
-        ),
-        bottomNavigationBar: widget.isTab
-            ? null
-            : AppBottomNav(
-                currentIndex: 2,
-                onTabSelected: _onNavTab,
-              ),
+        actions: const [
+          NotificationBellButton(),
+          SizedBox(width: 20),
+        ],
       ),
+      body: _buildBody(),
+      bottomNavigationBar: widget.isTab
+          ? null
+          : AppBottomNav(
+              currentIndex: 2,
+              onTabSelected: _onNavTab,
+            ),
     );
 
     if (widget.isTab) {
