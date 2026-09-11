@@ -620,101 +620,83 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
             );
           }
         },
-        child: Container(
-          decoration: const BoxDecoration(
-            color: EasySitColors.screenHeaderBackground,
-          ),
-          child: Scaffold(
-            backgroundColor: Colors.transparent,
-            appBar: AppBar(
-              toolbarHeight: 84,
-              elevation: 0,
-              scrolledUnderElevation: 0,
-              surfaceTintColor: Colors.transparent,
-              automaticallyImplyLeading: false,
-              backgroundColor: Colors.transparent,
-              systemOverlayStyle: const SystemUiOverlayStyle(
-                statusBarColor: Colors.transparent,
-                statusBarIconBrightness: Brightness.dark,
-                statusBarBrightness: Brightness.light,
-              ),
-              leadingWidth: 64,
-              leading: Center(
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: EasySitColors.surface,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: EasySitColors.divider),
-                    boxShadow: EasySitColors.cardShadows,
+        child: Scaffold(
+          backgroundColor: EasySitColors.appBackground,
+          appBar: AppBar(
+            toolbarHeight: 84,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            surfaceTintColor: Colors.transparent,
+            automaticallyImplyLeading: false,
+            backgroundColor: EasySitColors.screenHeaderBackground,
+            systemOverlayStyle: const SystemUiOverlayStyle(
+              statusBarColor: EasySitColors.screenHeaderBackground,
+              statusBarIconBrightness: Brightness.dark,
+              statusBarBrightness: Brightness.light,
+            ),
+            leadingWidth: 64,
+            leading: Center(
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: EasySitColors.surface,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: EasySitColors.divider),
+                  boxShadow: EasySitColors.cardShadows,
+                ),
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 18,
+                    color: EasySitColors.textPrimary,
                   ),
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    icon: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      size: 18,
-                      color: EasySitColors.textPrimary,
-                    ),
-                    onPressed: () {
-                      if (Navigator.canPop(context)) {
-                        Navigator.pop(context);
-                      } else {
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          AppPageRoute(
-                            builder: (_) => const StudentHomeScreen(),
-                          ),
-                          (route) => false,
-                        );
-                      }
-                    },
-                  ),
+                  onPressed: () {
+                    if (Navigator.canPop(context)) {
+                      Navigator.pop(context);
+                    } else {
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        AppPageRoute(
+                          builder: (_) => const StudentHomeScreen(),
+                        ),
+                        (route) => false,
+                      );
+                    }
+                  },
                 ),
               ),
-              titleSpacing: 0,
-              title: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    widget.roomName,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: EasySitColors.textPrimary,
-                    ),
+            ),
+            titleSpacing: 0,
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  widget.roomName,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: EasySitColors.textPrimary,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${widget.buildingName} • ${widget.floorName}',
-                    style: const TextStyle(
-                      color: EasySitColors.secondaryText,
-                      fontSize: 13,
-                    ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${widget.buildingName} • ${widget.floorName}',
+                  style: const TextStyle(
+                    color: EasySitColors.secondaryText,
+                    fontSize: 13,
                   ),
-                ],
-              ),
-              actions: const [
-                NotificationBellButton(),
-                SizedBox(width: 20),
+                ),
               ],
             ),
-            body: Container(
-              width: double.infinity,
-              decoration: const BoxDecoration(
-                color: EasySitColors.appBackground,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(28),
-                  topRight: Radius.circular(28),
-                ),
-              ),
-              child: ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(28),
-                  topRight: Radius.circular(28),
-                ),
-                child: StreamBuilder<QuerySnapshot>(
+            actions: const [
+              NotificationBellButton(),
+              SizedBox(width: 20),
+            ],
+          ),
+          body: StreamBuilder<QuerySnapshot>(
                   stream: _seatStream,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting &&
@@ -948,16 +930,13 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                     );
                   },
                 ),
-              ),
-            ),
             bottomNavigationBar: AppBottomNav(
               currentIndex: 0,
               onTabSelected: _onNavTab,
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 
   Widget _legendItem(Color fill, Color border, String label, {bool isFilled = false}) {
