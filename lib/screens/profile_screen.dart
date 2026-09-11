@@ -700,7 +700,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final scaffold = Container(
       decoration: const BoxDecoration(
-        gradient: EasySitColors.studentHeaderGradient,
+        color: EasySitColors.screenHeaderBackground,
       ),
       child: Scaffold(
         backgroundColor: Colors.transparent,

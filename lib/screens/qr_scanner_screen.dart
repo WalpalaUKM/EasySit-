@@ -1338,7 +1338,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   Widget build(BuildContext context) {
     final scaffold = Container(
       decoration: const BoxDecoration(
-        gradient: EasySitColors.studentHeaderGradient,
+        color: EasySitColors.screenHeaderBackground,
       ),
       child: Scaffold(
         extendBody: true,

@@ -622,7 +622,7 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
         },
         child: Container(
           decoration: const BoxDecoration(
-            gradient: EasySitColors.studentHeaderGradient,
+            color: EasySitColors.screenHeaderBackground,
           ),
           child: Scaffold(
             backgroundColor: Colors.transparent,

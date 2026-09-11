@@ -675,7 +675,7 @@ class _SessionScreenState extends State<SessionScreen>
   Widget build(BuildContext context) {
     final scaffold = Container(
       decoration: const BoxDecoration(
-        gradient: EasySitColors.studentHeaderGradient,
+        color: EasySitColors.screenHeaderBackground,
       ),
       child: Scaffold(
         backgroundColor: Colors.transparent,

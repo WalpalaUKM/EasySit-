@@ -80,6 +80,7 @@ class AdminDashboardScreen extends StatefulWidget {
 }
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _selectedIndex = 0;
 
   final List<String> _menuTitles = [
@@ -106,13 +107,41 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: EasySitColors.appBackground,
-      appBar: AppBar(
-        title: const Text(
-          'Admin Dashboard',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 19),
-        ),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
+          _scaffoldKey.currentState?.closeDrawer();
+          return;
+        }
+        if (_selectedIndex != 0) {
+          setState(() {
+            _selectedIndex = 0;
+          });
+        } else {
+          SystemNavigator.pop();
+        }
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: EasySitColors.appBackground,
+        appBar: AppBar(
+          leading: _selectedIndex != 0
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  tooltip: 'Back to Dashboard',
+                  onPressed: () {
+                    setState(() {
+                      _selectedIndex = 0;
+                    });
+                  },
+                )
+              : null,
+          title: const Text(
+            'Admin Dashboard',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 19),
+          ),
         backgroundColor: EasySitColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -233,6 +262,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
       ),
       body: _buildScreen(_selectedIndex),
+      ),
     );
   }
 

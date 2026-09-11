@@ -214,4 +214,7 @@ class EasySitColors {
       Colors.white,
     ],
   );
+
+  /// Top header background color for screens other than Student Home (#E8E8E8)
+  static const Color screenHeaderBackground = Color(0xFFE8E8E8);
 }
