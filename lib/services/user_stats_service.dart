@@ -19,9 +19,12 @@ class UserStatsService {
     if (userId.isEmpty || seatId.isEmpty) return;
 
     try {
+      final String cleanSeatId = seatId.replaceFirst('SEAT:', '').trim();
       final userRef = _firestore.collection('users').doc(userId);
       final DateTime effectiveBookedAt = bookedAt ?? DateTime.now();
-      final String sessionKey = '${seatId}_${effectiveBookedAt.millisecondsSinceEpoch}';
+      final String sessionKey = bookedAt != null
+          ? '${cleanSeatId}_${bookedAt.millisecondsSinceEpoch}'
+          : '${cleanSeatId}_${effectiveBookedAt.millisecondsSinceEpoch ~/ 10000}';
 
       // Determine study duration in minutes (minimum 1 minute, default 10 minutes)
       int durationMinutes = fallbackMinutes ?? 10;
@@ -51,13 +54,17 @@ class UserStatsService {
 
         int sessionsCompleted = (data['sessionsCompleted'] as num?)?.toInt() ?? 0;
         int totalMinutesStudied = (data['totalMinutesStudied'] as num?)?.toInt() ?? 0;
-        List<dynamic> usedSeats = List<dynamic>.from(data['usedSeats'] ?? []);
+
+        // Strictly deduplicate used seats via Set so using the same seat multiple times only counts once
+        final Set<String> uniqueSeats = (data['usedSeats'] as List? ?? [])
+            .map((e) => e.toString().replaceFirst('SEAT:', '').trim())
+            .where((e) => e.isNotEmpty)
+            .toSet();
+        uniqueSeats.add(cleanSeatId);
+        final List<String> usedSeats = uniqueSeats.toList();
 
         sessionsCompleted += 1;
         totalMinutesStudied += durationMinutes;
-        if (!usedSeats.contains(seatId)) {
-          usedSeats.add(seatId);
-        }
 
         double hoursStudied = double.parse((totalMinutesStudied / 60.0).toStringAsFixed(1));
 
@@ -65,7 +72,7 @@ class UserStatsService {
           'sessionsCompleted': sessionsCompleted,
           'totalMinutesStudied': totalMinutesStudied,
           'hoursStudied': hoursStudied,
-          'differentSeatsUsed': usedSeats.length,
+          'differentSeatsUsed': uniqueSeats.length,
           'usedSeats': usedSeats,
           'completedSessionKeys': completedKeys,
           'lastSessionCompletedAt': FieldValue.serverTimestamp(),
@@ -84,17 +91,24 @@ class UserStatsService {
     if (userId.isEmpty || seatId.isEmpty) return;
 
     try {
+      final String cleanSeatId = seatId.replaceFirst('SEAT:', '').trim();
       final userRef = _firestore.collection('users').doc(userId);
       await _firestore.runTransaction((tx) async {
         final snap = await tx.get(userRef);
         final data = snap.data() ?? {};
 
-        List<dynamic> usedSeats = List<dynamic>.from(data['usedSeats'] ?? []);
-        if (!usedSeats.contains(seatId)) {
-          usedSeats.add(seatId);
+        final Set<String> uniqueSeats = (data['usedSeats'] as List? ?? [])
+            .map((e) => e.toString().replaceFirst('SEAT:', '').trim())
+            .where((e) => e.isNotEmpty)
+            .toSet();
+        final bool isNewSeat = !uniqueSeats.contains(cleanSeatId);
+        uniqueSeats.add(cleanSeatId);
+        final List<String> usedSeats = uniqueSeats.toList();
+
+        if (isNewSeat || (data['differentSeatsUsed'] as num?)?.toInt() != uniqueSeats.length) {
           tx.set(userRef, {
             'usedSeats': usedSeats,
-            'differentSeatsUsed': usedSeats.length,
+            'differentSeatsUsed': uniqueSeats.length,
           }, SetOptions(merge: true));
         }
       });

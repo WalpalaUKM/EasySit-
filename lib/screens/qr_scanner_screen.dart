@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -12,6 +13,7 @@ import '../services/notification_service.dart';
 import '../services/user_stats_service.dart';
 import '../services/seat_expiry_service.dart';
 import '../utils/app_page_route.dart';
+import '../utils/app_colors.dart';
 
 class QrScannerScreen extends StatefulWidget {
   final VoidCallback? onBookingComplete;
@@ -34,6 +36,7 @@ class QrScannerScreen extends StatefulWidget {
 class _QrScannerScreenState extends State<QrScannerScreen> {
   final MobileScannerController _controller = MobileScannerController();
   bool _isProcessing = false;
+  static final Map<String, Map<String, String>> _roomDetailsCache = {};
 
   @override
   void initState() {
@@ -63,9 +66,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     if (qrValue == null || !qrValue.startsWith('SEAT:')) return;
 
     setState(() => _isProcessing = true);
-    try {
-      await _controller.stop();
-    } catch (_) {}
+    // Non-blocking camera stop to avoid freezing the thread
+    _controller.stop().catchError((_) {});
 
     String seatId = qrValue.substring(5).trim();
     User? user = FirebaseAuth.instance.currentUser;
@@ -76,11 +78,17 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     }
 
     try {
-      DocumentSnapshot seatDoc =
-          await FirebaseFirestore.instance
-              .collection('seats')
-              .doc(seatId)
-              .get();
+      // Concurrently fetch the seat document and check for existing bookings
+      final results = await Future.wait([
+        FirebaseFirestore.instance
+            .collection('seats')
+            .doc(seatId)
+            .get(),
+        _hasExistingBooking(user.uid),
+      ]);
+
+      DocumentSnapshot seatDoc = results[0] as DocumentSnapshot;
+      bool hasBooking = results[1] as bool;
 
       if (!seatDoc.exists) {
         _showError('Seat not found!');
@@ -97,39 +105,59 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       String floorName = data['floorName'] ?? '';
       String buildingName = data['buildingName'] ?? '';
 
-      // Only query extra room details if not already present on seat doc
+      // Check fast in-memory cache first for instant 0ms resolution
       if ((roomName.isEmpty || buildingName.isEmpty) && roomId.isNotEmpty) {
-        try {
-          DocumentSnapshot roomDoc =
-              await FirebaseFirestore.instance
-                  .collection('rooms')
-                  .doc(roomId)
-                  .get();
-          var roomData = roomDoc.data() as Map<String, dynamic>?;
-          if (roomName.isEmpty) roomName = roomData?['name'] ?? 'Room';
-          String floorId = roomData?['floorId'] ?? '';
-
-          if (floorId.isNotEmpty) {
-            DocumentSnapshot floorDoc =
+        if (_roomDetailsCache.containsKey(roomId)) {
+          final cached = _roomDetailsCache[roomId]!;
+          if (roomName.isEmpty) roomName = cached['roomName'] ?? 'Room';
+          if (floorName.isEmpty) floorName = cached['floorName'] ?? 'Floor';
+          if (buildingName.isEmpty) buildingName = cached['buildingName'] ?? 'Building';
+        } else {
+          try {
+            DocumentSnapshot roomDoc =
                 await FirebaseFirestore.instance
-                    .collection('floors')
-                    .doc(floorId)
+                    .collection('rooms')
+                    .doc(roomId)
                     .get();
-            var floorData = floorDoc.data() as Map<String, dynamic>?;
-            if (floorName.isEmpty) floorName = floorData?['name'] ?? 'Floor';
-            String buildingId = floorData?['buildingId'] ?? '';
+            var roomData = roomDoc.data() as Map<String, dynamic>?;
+            if (roomName.isEmpty) roomName = roomData?['name'] ?? 'Room';
+            String floorId = roomData?['floorId'] ?? '';
 
-            if (buildingId.isNotEmpty && buildingName.isEmpty) {
-              DocumentSnapshot buildingDoc =
+            if (floorId.isNotEmpty) {
+              DocumentSnapshot floorDoc =
                   await FirebaseFirestore.instance
-                      .collection('buildings')
-                      .doc(buildingId)
+                      .collection('floors')
+                      .doc(floorId)
                       .get();
-              var buildingData = buildingDoc.data() as Map<String, dynamic>?;
-              buildingName = buildingData?['name'] ?? 'Building';
+              var floorData = floorDoc.data() as Map<String, dynamic>?;
+              if (floorName.isEmpty) floorName = floorData?['name'] ?? 'Floor';
+              String buildingId = floorData?['buildingId'] ?? '';
+
+              if (buildingId.isNotEmpty && buildingName.isEmpty) {
+                DocumentSnapshot buildingDoc =
+                    await FirebaseFirestore.instance
+                        .collection('buildings')
+                        .doc(buildingId)
+                        .get();
+                var buildingData = buildingDoc.data() as Map<String, dynamic>?;
+                buildingName = buildingData?['name'] ?? 'Building';
+              }
             }
-          }
-        } catch (_) {}
+
+            _roomDetailsCache[roomId] = {
+              'roomName': roomName.isNotEmpty ? roomName : 'Room',
+              'floorName': floorName.isNotEmpty ? floorName : 'Floor',
+              'buildingName': buildingName.isNotEmpty ? buildingName : 'Building',
+            };
+
+            // Write back to seat document in background so future scans have them instantly
+            FirebaseFirestore.instance.collection('seats').doc(seatId).update({
+              'roomName': roomName,
+              'floorName': floorName,
+              'buildingName': buildingName,
+            }).catchError((_) {});
+          } catch (_) {}
+        }
       }
 
       if (roomName.isEmpty) roomName = 'Room';
@@ -139,13 +167,12 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
       // Real-time dynamic expiration check on scanned seat
       if (SeatExpiryService.isSeatExpired(data)) {
-        await SeatExpiryService.releaseExpiredSeatIfNeeded(seatId, data);
+        SeatExpiryService.releaseExpiredSeatIfNeeded(seatId, data);
         status = 'available';
         data['status'] = 'available';
       }
 
       if (status == 'available') {
-        bool hasBooking = await _hasExistingBooking(user.uid);
         if (hasBooking) {
           if (mounted) {
             _showActiveBookingPopup(context, scannedSeatNumber: seatNumber);
@@ -234,7 +261,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(28),
             ),
-            backgroundColor: Colors.white,
+            backgroundColor: EasySitColors.surface,
             elevation: 12,
             insetPadding: const EdgeInsets.symmetric(
               horizontal: 24,
@@ -250,10 +277,10 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                     width: 68,
                     height: 68,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFD1FAE5), // Soft emerald background
+                      color: EasySitColors.successBg,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: const Color(0xFFA7F3D0),
+                        color: EasySitColors.successBorder,
                         width: 1.5,
                       ),
                     ),
@@ -261,7 +288,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                       child: Icon(
                         Icons.event_seat_rounded,
                         size: 34,
-                        color: Color(0xFF059669), // Rich emerald icon
+                        color: EasySitColors.success,
                       ),
                     ),
                   ),
@@ -274,18 +301,18 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                       fontFamily: 'Inter',
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
+                      color: EasySitColors.textPrimary,
                       letterSpacing: -0.3,
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(
+                  const Text(
                     'Confirm your selection to start your session',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 13,
-                      color: Colors.grey.shade600,
+                      color: EasySitColors.textSecondary,
                       height: 1.3,
                     ),
                   ),
@@ -296,9 +323,9 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
+                      color: EasySitColors.subtleSurface,
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      border: Border.all(color: EasySitColors.divider),
                     ),
                     child: Row(
                       children: [
@@ -306,24 +333,14 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                           width: 48,
                           height: 48,
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF10B981), Color(0xFF059669)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
+                            color: EasySitColors.primaryTint,
                             borderRadius: BorderRadius.circular(14),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF10B981).withValues(alpha: 0.25),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
+                            border: Border.all(color: EasySitColors.softBlueBorder),
                           ),
                           child: const Center(
                             child: Icon(
                               Icons.chair_rounded,
-                              color: Colors.white,
+                              color: EasySitColors.primary,
                               size: 26,
                             ),
                           ),
@@ -341,7 +358,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                                       fontFamily: 'Inter',
                                       fontSize: 17,
                                       fontWeight: FontWeight.bold,
-                                      color: Color(0xFF0F172A),
+                                      color: EasySitColors.textPrimary,
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -351,10 +368,10 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                                       vertical: 2,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFECFDF5),
+                                      color: EasySitColors.successBg,
                                       borderRadius: BorderRadius.circular(6),
                                       border: Border.all(
-                                        color: const Color(0xFFA7F3D0),
+                                        color: EasySitColors.successBorder,
                                       ),
                                     ),
                                     child: const Text(
@@ -362,7 +379,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w700,
-                                        color: Color(0xFF059669),
+                                        color: EasySitColors.success,
                                       ),
                                     ),
                                   ),
@@ -373,10 +390,10 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                                 '$buildingName • $floorName • $roomName',
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 13,
-                                  color: Colors.grey.shade600,
+                                  color: EasySitColors.textSecondary,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -396,15 +413,15 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF0FDF4),
+                      color: EasySitColors.successBg,
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFFBBF7D0)),
+                      border: Border.all(color: EasySitColors.successBorder),
                     ),
                     child: const Row(
                       children: [
                         Icon(
                           Icons.schedule_rounded,
-                          color: Color(0xFF16A34A),
+                          color: EasySitColors.success,
                           size: 20,
                         ),
                         SizedBox(width: 10),
@@ -414,7 +431,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                             style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF15803D),
+                              color: EasySitColors.success,
                             ),
                           ),
                         ),
@@ -435,9 +452,9 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                               _resetScanner();
                             },
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF64748B),
+                              foregroundColor: EasySitColors.textSecondary,
                               side: const BorderSide(
-                                color: Color(0xFFCBD5E1),
+                                color: EasySitColors.divider,
                                 width: 1.2,
                               ),
                               shape: RoundedRectangleBorder(
@@ -472,8 +489,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                               );
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF10B981),
-                              foregroundColor: Colors.white,
+                              backgroundColor: EasySitColors.primary,
+                              foregroundColor: EasySitColors.onPrimary,
                               elevation: 0,
                               shadowColor: Colors.transparent,
                               shape: RoundedRectangleBorder(
@@ -517,7 +534,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(28),
             ),
-            backgroundColor: Colors.white,
+            backgroundColor: EasySitColors.surface,
             elevation: 12,
             insetPadding: const EdgeInsets.symmetric(
               horizontal: 24,
@@ -533,10 +550,10 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                     width: 68,
                     height: 68,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFD1FAE5),
+                      color: EasySitColors.successBg,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: const Color(0xFFA7F3D0),
+                        color: EasySitColors.successBorder,
                         width: 1.5,
                       ),
                     ),
@@ -544,7 +561,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                       child: Icon(
                         Icons.verified_rounded,
                         size: 34,
-                        color: Color(0xFF059669),
+                        color: EasySitColors.success,
                       ),
                     ),
                   ),
@@ -557,18 +574,18 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                       fontFamily: 'Inter',
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
+                      color: EasySitColors.textPrimary,
                       letterSpacing: -0.3,
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(
+                  const Text(
                     'Scan verified! Confirm to activate your session',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 13,
-                      color: Colors.grey.shade600,
+                      color: EasySitColors.textSecondary,
                       height: 1.3,
                     ),
                   ),
@@ -579,9 +596,9 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
+                      color: EasySitColors.subtleSurface,
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      border: Border.all(color: EasySitColors.divider),
                     ),
                     child: Row(
                       children: [
@@ -589,24 +606,14 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                           width: 48,
                           height: 48,
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF10B981), Color(0xFF059669)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
+                            color: EasySitColors.primaryTint,
                             borderRadius: BorderRadius.circular(14),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF10B981).withValues(alpha: 0.25),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
+                            border: Border.all(color: EasySitColors.softBlueBorder),
                           ),
                           child: const Center(
                             child: Icon(
                               Icons.chair_rounded,
-                              color: Colors.white,
+                              color: EasySitColors.primary,
                               size: 26,
                             ),
                           ),
@@ -624,7 +631,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                                       fontFamily: 'Inter',
                                       fontSize: 17,
                                       fontWeight: FontWeight.bold,
-                                      color: Color(0xFF0F172A),
+                                      color: EasySitColors.textPrimary,
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -634,10 +641,10 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                                       vertical: 2,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFFEF3C7),
+                                      color: EasySitColors.warningBg,
                                       borderRadius: BorderRadius.circular(6),
                                       border: Border.all(
-                                        color: const Color(0xFFFDE68A),
+                                        color: EasySitColors.warningBorder,
                                       ),
                                     ),
                                     child: const Text(
@@ -645,7 +652,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w700,
-                                        color: Color(0xFFD97706),
+                                        color: EasySitColors.warning,
                                       ),
                                     ),
                                   ),
@@ -656,10 +663,10 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                                 '$buildingName • $floorName • $roomName',
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontFamily: 'Inter',
                                   fontSize: 13,
-                                  color: Colors.grey.shade600,
+                                  color: EasySitColors.textSecondary,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -679,15 +686,15 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF0FDF4),
+                      color: EasySitColors.successBg,
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFFBBF7D0)),
+                      border: Border.all(color: EasySitColors.successBorder),
                     ),
                     child: const Row(
                       children: [
                         Icon(
                           Icons.schedule_rounded,
-                          color: Color(0xFF16A34A),
+                          color: EasySitColors.success,
                           size: 20,
                         ),
                         SizedBox(width: 10),
@@ -697,7 +704,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                             style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF15803D),
+                              color: EasySitColors.success,
                             ),
                           ),
                         ),
@@ -718,9 +725,9 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                               _resetScanner();
                             },
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF64748B),
+                              foregroundColor: EasySitColors.textSecondary,
                               side: const BorderSide(
-                                color: Color(0xFFCBD5E1),
+                                color: EasySitColors.divider,
                                 width: 1.2,
                               ),
                               shape: RoundedRectangleBorder(
@@ -755,8 +762,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                               );
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF10B981),
-                              foregroundColor: Colors.white,
+                              backgroundColor: EasySitColors.primary,
+                              foregroundColor: EasySitColors.onPrimary,
                               elevation: 0,
                               shadowColor: Colors.transparent,
                               shape: RoundedRectangleBorder(
@@ -784,41 +791,49 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   }
 
   Future<bool> _hasExistingBooking(String uid) async {
-    QuerySnapshot pending =
-        await FirebaseFirestore.instance
+    try {
+      final results = await Future.wait([
+        FirebaseFirestore.instance
             .collection('seats')
             .where('pendingBy', isEqualTo: uid)
             .limit(1)
-            .get();
-    if (pending.docs.isNotEmpty) {
-      final pData = pending.docs.first.data() as Map<String, dynamic>;
-      if (SeatExpiryService.isSeatExpired(pData)) {
-        await SeatExpiryService.releaseExpiredSeatIfNeeded(
-          pending.docs.first.id,
-          pData,
-        );
-      } else {
-        return true;
-      }
-    }
-    QuerySnapshot booked =
-        await FirebaseFirestore.instance
+            .get(),
+        FirebaseFirestore.instance
             .collection('seats')
             .where('bookedBy', isEqualTo: uid)
             .limit(1)
-            .get();
-    if (booked.docs.isNotEmpty) {
-      final bData = booked.docs.first.data() as Map<String, dynamic>;
-      if (SeatExpiryService.isSeatExpired(bData)) {
-        await SeatExpiryService.releaseExpiredSeatIfNeeded(
-          booked.docs.first.id,
-          bData,
-        );
-      } else {
-        return true;
+            .get(),
+      ]);
+
+      final pending = results[0];
+      final booked = results[1];
+
+      if (pending.docs.isNotEmpty) {
+        final pData = pending.docs.first.data();
+        if (SeatExpiryService.isSeatExpired(pData)) {
+          SeatExpiryService.releaseExpiredSeatIfNeeded(
+            pending.docs.first.id,
+            pData,
+          );
+        } else {
+          return true;
+        }
       }
+      if (booked.docs.isNotEmpty) {
+        final bData = booked.docs.first.data();
+        if (SeatExpiryService.isSeatExpired(bData)) {
+          SeatExpiryService.releaseExpiredSeatIfNeeded(
+            booked.docs.first.id,
+            bData,
+          );
+        } else {
+          return true;
+        }
+      }
+      return false;
+    } catch (_) {
+      return false;
     }
-    return false;
   }
 
   Future<void> _bookSeatDirect(
@@ -832,11 +847,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     User? user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       _showError('Please login first');
-      return;
-    }
-    bool hasBooking = await _hasExistingBooking(user.uid);
-    if (hasBooking) {
-      if (mounted) _showActiveBookingPopup(context, scannedSeatNumber: seatNumber);
       return;
     }
     try {
@@ -942,19 +952,19 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       SnackBar(
         content: const Row(
           children: [
-            Icon(Icons.check_circle, color: Colors.white, size: 22),
+            Icon(Icons.check_circle, color: EasySitColors.onPrimary, size: 22),
             SizedBox(width: 12),
             Text(
               'Session started successfully!',
               style: TextStyle(
-                color: Colors.white,
+                color: EasySitColors.onPrimary,
                 fontWeight: FontWeight.w600,
                 fontSize: 15,
               ),
             ),
           ],
         ),
-        backgroundColor: const Color(0xFF10B981),
+        backgroundColor: EasySitColors.success,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         duration: const Duration(milliseconds: 2500),
@@ -995,7 +1005,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
-          backgroundColor: Colors.white,
+          backgroundColor: EasySitColors.surface,
           elevation: 12,
           insetPadding: const EdgeInsets.symmetric(
             horizontal: 28,
@@ -1012,14 +1022,14 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 Container(
                   width: 64,
                   height: 64,
-                  decoration: BoxDecoration(
-                    color: Colors.amber.shade50,
+                  decoration: const BoxDecoration(
+                    color: EasySitColors.warningBg,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.warning_amber_rounded,
                     size: 36,
-                    color: Colors.amber.shade700,
+                    color: EasySitColors.warning,
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -1030,7 +1040,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                     fontFamily: 'Inter',
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
+                    color: EasySitColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -1039,10 +1049,10 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                       ? 'You already have an active seat reservation. Please cancel or finish your current session before booking Seat $scannedSeatNumber.'
                       : 'Please cancel your current booking before booking another seat.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 14,
-                    color: Colors.grey.shade600,
+                    color: EasySitColors.textSecondary,
                     height: 1.4,
                   ),
                 ),
@@ -1056,8 +1066,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                           _resetScanner();
                         },
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF64748B),
-                          side: const BorderSide(color: Color(0xFFCBD5E1)),
+                          foregroundColor: EasySitColors.textSecondary,
+                          side: const BorderSide(color: EasySitColors.divider),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
@@ -1080,8 +1090,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                           _onNavTab(2);
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0D6EFD),
-                          foregroundColor: Colors.white,
+                          backgroundColor: EasySitColors.primary,
+                          foregroundColor: EasySitColors.onPrimary,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
@@ -1130,11 +1140,11 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         });
 
         Color iconBg = isMine
-            ? const Color(0xFFEFF6FF)
-            : (isPending ? const Color(0xFFFEF3C7) : const Color(0xFFFEE2E2));
+            ? EasySitColors.primaryTint
+            : (isPending ? EasySitColors.warningBg : EasySitColors.bookedFill);
         Color iconColor = isMine
-            ? const Color(0xFF0D6EFD)
-            : (isPending ? const Color(0xFFD97706) : const Color(0xFFEF4444));
+            ? EasySitColors.primary
+            : (isPending ? EasySitColors.warning : EasySitColors.bookedText);
         IconData iconData = isMine
             ? Icons.event_seat_rounded
             : (isPending
@@ -1153,7 +1163,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
-          backgroundColor: Colors.white,
+          backgroundColor: EasySitColors.surface,
           elevation: 12,
           insetPadding: const EdgeInsets.symmetric(
             horizontal: 28,
@@ -1187,7 +1197,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                     fontFamily: 'Inter',
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
+                    color: EasySitColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -1197,17 +1207,17 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
+                    color: EasySitColors.subtleSurface,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    border: Border.all(color: EasySitColors.divider),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.location_on_outlined,
                         size: 15,
-                        color: Colors.grey.shade600,
+                        color: EasySitColors.textSecondary,
                       ),
                       const SizedBox(width: 6),
                       Text(
@@ -1216,7 +1226,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                           fontFamily: 'Inter',
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF334155),
+                          color: EasySitColors.bodyText,
                         ),
                       ),
                     ],
@@ -1226,10 +1236,10 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 Text(
                   message,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 14,
-                    color: Colors.grey.shade600,
+                    color: EasySitColors.textSecondary,
                     height: 1.4,
                   ),
                 ),
@@ -1244,8 +1254,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                         _onNavTab(2);
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0D6EFD),
-                        foregroundColor: Colors.white,
+                        backgroundColor: EasySitColors.primary,
+                        foregroundColor: EasySitColors.onPrimary,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
@@ -1271,8 +1281,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                         _resetScanner();
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0D6EFD),
-                        foregroundColor: Colors.white,
+                        backgroundColor: EasySitColors.primary,
+                        foregroundColor: EasySitColors.onPrimary,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
@@ -1300,7 +1310,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     if (!mounted) return;
     _resetScanner();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+      SnackBar(content: Text(message), backgroundColor: EasySitColors.error),
     );
   }
 
@@ -1328,35 +1338,43 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   Widget build(BuildContext context) {
     final scaffold = Scaffold(
       extendBody: true,
-      backgroundColor: Colors.white,
+      backgroundColor: EasySitColors.appBackground,
       appBar: AppBar(
         toolbarHeight: 72,
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
         automaticallyImplyLeading: false,
-        backgroundColor: Colors.white,
+        backgroundColor: EasySitColors.appBackground,
+        systemOverlayStyle: const SystemUiOverlayStyle(
+          statusBarColor: EasySitColors.appBackground,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
+        titleSpacing: 20,
         title: const Text(
           'Scan QR Code',
           style: TextStyle(
             fontFamily: 'Inter',
             fontSize: 22,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF0F172A),
+            color: EasySitColors.textPrimary,
           ),
         ),
         actions: [
           Container(
             margin: const EdgeInsets.symmetric(vertical: 14),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF1F5F9),
+            decoration: BoxDecoration(
+              color: EasySitColors.surface,
               shape: BoxShape.circle,
+              border: Border.all(color: EasySitColors.divider),
+              boxShadow: EasySitColors.cardShadows,
             ),
             child: IconButton(
               icon: const Icon(
                 Icons.flash_on_rounded,
                 size: 20,
-                color: Color(0xFF0F172A),
+                color: EasySitColors.textPrimary,
               ),
               onPressed: () => _controller.toggleTorch(),
               tooltip: 'Toggle Flash',
@@ -1365,15 +1383,17 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           const SizedBox(width: 8),
           Container(
             margin: const EdgeInsets.symmetric(vertical: 14),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF1F5F9),
+            decoration: BoxDecoration(
+              color: EasySitColors.surface,
               shape: BoxShape.circle,
+              border: Border.all(color: EasySitColors.divider),
+              boxShadow: EasySitColors.cardShadows,
             ),
             child: IconButton(
               icon: const Icon(
                 Icons.flip_camera_android_rounded,
                 size: 20,
-                color: Color(0xFF0F172A),
+                color: EasySitColors.textPrimary,
               ),
               onPressed: () => _controller.switchCamera(),
               tooltip: 'Switch Camera',

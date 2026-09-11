@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../navigator_key.dart';
+import '../utils/app_colors.dart';
 
 class ReservationExpiredDialog extends StatelessWidget {
   const ReservationExpiredDialog({super.key});
@@ -35,7 +36,7 @@ class ReservationExpiredDialog extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
-          backgroundColor: Colors.white,
+          backgroundColor: EasySitColors.surface,
           elevation: 10,
           insetPadding: const EdgeInsets.symmetric(
             horizontal: 28,
@@ -52,14 +53,14 @@ class ReservationExpiredDialog extends StatelessWidget {
                 Container(
                   width: 64,
                   height: 64,
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
+                  decoration: const BoxDecoration(
+                    color: EasySitColors.errorBg,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.timer_off_rounded,
                     size: 36,
-                    color: Colors.red.shade600,
+                    color: EasySitColors.error,
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -70,17 +71,17 @@ class ReservationExpiredDialog extends StatelessWidget {
                     fontFamily: 'Inter',
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
+                    color: EasySitColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 10),
-                Text(
+                const Text(
                   'Your reservation time has expired. The seat has been released.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 14,
-                    color: Colors.grey.shade600,
+                    color: EasySitColors.textSecondary,
                     height: 1.4,
                   ),
                 ),

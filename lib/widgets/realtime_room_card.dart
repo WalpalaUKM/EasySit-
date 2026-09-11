@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/seat_expiry_service.dart';
 import '../screens/seat_booking_screen.dart';
 import '../utils/app_page_route.dart';
+import '../utils/app_colors.dart';
 
 class RealtimeRoomCard extends StatefulWidget {
   final Map<String, dynamic> room;
@@ -136,24 +137,16 @@ class _RealtimeRoomCardState extends State<RealtimeRoomCard> {
           });
         }
 
-        final shadows = widget.customShadow ??
-            [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 10,
-                spreadRadius: 0,
-                offset: const Offset(0, 2),
-              ),
-            ];
+        final shadows = widget.customShadow ?? EasySitColors.cardShadows;
 
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: EasySitColors.surface,
             borderRadius: BorderRadius.circular(20),
             boxShadow: shadows,
             border: widget.showBorder
-                ? Border.all(color: Colors.grey.shade200)
+                ? Border.all(color: EasySitColors.divider)
                 : null,
           ),
           child: InkWell(
@@ -175,7 +168,7 @@ class _RealtimeRoomCardState extends State<RealtimeRoomCard> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('No seats available in this room'),
-                    backgroundColor: Colors.orange,
+                    backgroundColor: EasySitColors.warningFg,
                   ),
                 );
               }
@@ -187,12 +180,12 @@ class _RealtimeRoomCardState extends State<RealtimeRoomCard> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: theme['color'] ?? const Color(0xFFFFF8E1),
+                      color: theme['color'] ?? EasySitColors.areaOrangeBg,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Icon(
                       theme['icon'] ?? Icons.apartment_rounded,
-                      color: theme['iconColor'] ?? const Color(0xFFF57F17),
+                      color: theme['iconColor'] ?? EasySitColors.areaOrangeFg,
                       size: 28,
                     ),
                   ),
@@ -207,7 +200,7 @@ class _RealtimeRoomCardState extends State<RealtimeRoomCard> {
                             fontFamily: 'Inter',
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: Colors.black87,
+                            color: EasySitColors.mainText,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -217,7 +210,7 @@ class _RealtimeRoomCardState extends State<RealtimeRoomCard> {
                             fontFamily: 'Inter',
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
-                            color: Color(0xFF9E9E9E),
+                            color: EasySitColors.secondaryText,
                           ),
                         ),
                       ],
@@ -239,8 +232,8 @@ class _RealtimeRoomCardState extends State<RealtimeRoomCard> {
                                   ? FontWeight.w600
                                   : FontWeight.bold,
                               color: availableSeats > 0
-                                  ? const Color(0xFF00C853)
-                                  : Colors.red,
+                                  ? EasySitColors.successFg
+                                  : EasySitColors.neutralFg,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -250,7 +243,7 @@ class _RealtimeRoomCardState extends State<RealtimeRoomCard> {
                               fontFamily: 'Inter',
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
-                              color: Color(0xFF9E9E9E),
+                              color: EasySitColors.secondaryText,
                             ),
                           ),
                         ],
@@ -258,7 +251,7 @@ class _RealtimeRoomCardState extends State<RealtimeRoomCard> {
                       const SizedBox(width: 12),
                       const Icon(
                         Icons.arrow_forward_ios,
-                        color: Colors.black87,
+                        color: EasySitColors.secondaryText,
                         size: 16,
                       ),
                     ],

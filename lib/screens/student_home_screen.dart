@@ -16,6 +16,7 @@ import '../widgets/notification_bell_button.dart';
 import '../widgets/reservation_expired_dialog.dart';
 import '../widgets/building_rooms_section.dart';
 import '../utils/greeting_helper.dart';
+import '../utils/app_colors.dart';
 
 class StudentHomeScreen extends StatefulWidget {
   final int initialIndex;
@@ -48,6 +49,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
     WidgetsBinding.instance.addObserver(this);
     _currentGreeting = GreetingHelper.getGreeting();
     _startGreetingTimer();
+    _updateStatusBarForTab(_currentIndex);
 
     // Check for instant cached name from ProfileScreen notifier
     if (ProfileScreen.userNameNotifier.value.isNotEmpty) {
@@ -177,6 +179,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
           controller: _pageController,
           physics: const ClampingScrollPhysics(),
           onPageChanged: (index) {
+            _updateStatusBarForTab(index);
             if (index == 0 &&
                 ProfileScreen.userNameNotifier.value.isNotEmpty &&
                 _userName != ProfileScreen.userNameNotifier.value) {
@@ -210,24 +213,36 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
   }
 
   Widget _buildHomeTab() {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0D6EFD),
-      appBar: _buildAppBar(),
-      body: Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          color: Color(0xFFF4F6F8),
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(28),
-            topRight: Radius.circular(28),
-          ),
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFFD6E4FF), // Light blue
+            Colors.white,      // White
+          ],
         ),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(28),
-            topRight: Radius.circular(28),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: _buildAppBar(),
+        body: Container(
+          width: double.infinity,
+          decoration: const BoxDecoration(
+            color: EasySitColors.appBackground,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(28),
+              topRight: Radius.circular(28),
+            ),
           ),
-          child: _buildBody(),
+          child: ClipRRect(
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(28),
+              topRight: Radius.circular(28),
+            ),
+            child: _buildBody(),
+          ),
         ),
       ),
     );
@@ -240,11 +255,11 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
       elevation: 0,
       scrolledUnderElevation: 0,
       surfaceTintColor: Colors.transparent,
-      backgroundColor: const Color(0xFF0D6EFD),
+      backgroundColor: Colors.transparent,
       systemOverlayStyle: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
-        statusBarBrightness: Brightness.dark,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
       ),
       titleSpacing: 20,
       title: Column(
@@ -252,11 +267,11 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
         children: [
           Text(
             _currentGreeting,
-            style: TextStyle(
+            style: const TextStyle(
               fontFamily: 'Inter',
               fontSize: 14,
-              fontWeight: FontWeight.normal,
-              color: Colors.white.withValues(alpha: 0.8),
+              fontWeight: FontWeight.w500,
+              color: EasySitColors.darkBlue,
             ),
           ),
           const SizedBox(height: 4),
@@ -266,7 +281,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
               fontFamily: 'Inter',
               fontSize: 24,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: EasySitColors.deepDarkBlue,
             ),
           ),
         ],
@@ -341,8 +356,19 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
     } catch (_) {}
   }
 
+  void _updateStatusBarForTab(int index) {
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+      ),
+    );
+  }
+
   void _onNavTab(int index) {
     if (index == _currentIndex) return;
+    _updateStatusBarForTab(index);
     if (index == 0 &&
         ProfileScreen.userNameNotifier.value.isNotEmpty &&
         _userName != ProfileScreen.userNameNotifier.value) {
@@ -405,7 +431,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                   fontFamily: 'Inter',
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+                  color: EasySitColors.mainText,
                 ),
               ),
               TextButton(
@@ -421,7 +447,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                     fontFamily: 'Inter',
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF5C55F2),
+                    color: EasySitColors.primary,
                   ),
                 ),
               ),
@@ -482,17 +508,17 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
         padding: const EdgeInsets.all(16.0),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
             colors: [
-              Color(0xFF3B5DF8),
-              Color(0xFF6B58F8),
+              EasySitColors.deepPurple,
+              EasySitColors.primary,
             ],
           ),
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF3B5DF8).withValues(alpha: 0.32),
+              color: EasySitColors.primary.withValues(alpha: 0.32),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -510,7 +536,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Icon(icon, color: const Color(0xFF3B5DF8), size: 24),
+                  child: Icon(icon, color: EasySitColors.primary, size: 24),
                 ),
                 Container(
                   width: 28,
@@ -529,7 +555,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                   child: const Center(
                     child: Icon(
                       Icons.chevron_right_rounded,
-                      color: Color(0xFF1E293B),
+                      color: EasySitColors.mainText,
                       size: 18,
                     ),
                   ),
@@ -575,16 +601,10 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
       child: Container(
         padding: const EdgeInsets.all(16.0),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: EasySitColors.surface,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-          border: Border.all(color: Colors.grey.shade200),
+          boxShadow: EasySitColors.cardShadows,
+          border: Border.all(color: EasySitColors.divider),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -595,20 +615,20 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE8F0FE),
+                    color: EasySitColors.primaryTint,
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Icon(icon, color: const Color(0xFF5C55F2), size: 24),
+                  child: Icon(icon, color: EasySitColors.primary, size: 24),
                 ),
                 Container(
                   padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
+                  decoration: const BoxDecoration(
+                    color: EasySitColors.subtleSurface,
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
                     Icons.arrow_forward_ios,
-                    color: Colors.black54,
+                    color: EasySitColors.secondaryText,
                     size: 12,
                   ),
                 ),
@@ -621,7 +641,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                 fontFamily: 'Inter',
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
+                color: EasySitColors.mainText,
               ),
             ),
             const SizedBox(height: 4),
@@ -629,11 +649,11 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
               subtitle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
+              style: const TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 12,
                 fontWeight: FontWeight.normal,
-                color: Colors.grey.shade500,
+                color: EasySitColors.secondaryText,
               ),
             ),
           ],
@@ -644,28 +664,23 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
 
   Map<String, dynamic> _getAreaTheme(String roomName) {
     String lower = roomName.toLowerCase();
+    IconData icon;
     if (lower.contains('quiet') ||
         lower.contains('silent') ||
         lower.contains('reading')) {
-      return {
-        'color': const Color(0xFFE8F5E9),
-        'iconColor': const Color(0xFF2E7D32),
-        'icon': Icons.menu_book_rounded,
-      };
+      icon = Icons.menu_book_rounded;
     } else if (lower.contains('group') ||
         lower.contains('collab') ||
         lower.contains('discussion')) {
-      return {
-        'color': const Color(0xFFF3E5F5),
-        'iconColor': const Color(0xFF7B1FA2),
-        'icon': Icons.groups_rounded,
-      };
+      icon = Icons.groups_rounded;
     } else {
-      return {
-        'color': const Color(0xFFFFF8E1),
-        'iconColor': const Color(0xFFF57F17),
-        'icon': Icons.apartment_rounded,
-      };
+      icon = Icons.apartment_rounded;
     }
+
+    return {
+      'color': EasySitColors.areaOrangeBg,     // Light orange-mix-yellow icon background (#FEF3C7)
+      'iconColor': EasySitColors.areaOrangeFg, // Orange-mix-yellow icon (#D97706)
+      'icon': icon,
+    };
   }
 }

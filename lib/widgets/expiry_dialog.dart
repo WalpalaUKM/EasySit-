@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/app_colors.dart';
 
 class ExpiryDialog extends StatelessWidget {
   final String seatNumber;
@@ -20,7 +21,7 @@ class ExpiryDialog extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
       ),
-      backgroundColor: Colors.white,
+      backgroundColor: EasySitColors.surface,
       elevation: 8,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Padding(
@@ -32,15 +33,15 @@ class ExpiryDialog extends StatelessWidget {
             Container(
               width: 64,
               height: 64,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFEF3C7), // Soft amber background
+              decoration: const BoxDecoration(
+                color: EasySitColors.warningBg,
                 shape: BoxShape.circle,
               ),
               child: const Center(
                 child: Icon(
                   Icons.hourglass_top_rounded,
                   size: 32,
-                  color: Color(0xFFD97706), // Rich yellow-orange icon
+                  color: EasySitColors.warning,
                 ),
               ),
             ),
@@ -52,7 +53,7 @@ class ExpiryDialog extends StatelessWidget {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF0F172A),
+                color: EasySitColors.textPrimary,
               ),
               textAlign: TextAlign.center,
             ),
@@ -63,9 +64,9 @@ class ExpiryDialog extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
+                color: EasySitColors.subtleSurface,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                border: Border.all(color: EasySitColors.divider),
               ),
               child: Row(
                 children: [
@@ -73,12 +74,12 @@ class ExpiryDialog extends StatelessWidget {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2ECA7F).withValues(alpha: 0.12),
+                      color: EasySitColors.primaryTint,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
                       Icons.chair_rounded,
-                      color: Color(0xFF2ECA7F),
+                      color: EasySitColors.primary,
                       size: 24,
                     ),
                   ),
@@ -92,7 +93,7 @@ class ExpiryDialog extends StatelessWidget {
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A),
+                            color: EasySitColors.textPrimary,
                           ),
                         ),
                         if (buildingName.isNotEmpty || roomName.isNotEmpty) ...[
@@ -101,9 +102,9 @@ class ExpiryDialog extends StatelessWidget {
                             [buildingName, roomName]
                                 .where((s) => s.isNotEmpty)
                                 .join(' • '),
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 12,
-                              color: Colors.grey.shade600,
+                              color: EasySitColors.textSecondary,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -128,25 +129,25 @@ class ExpiryDialog extends StatelessWidget {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFEF2F2),
+                      color: EasySitColors.errorBg,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFFECACA)),
+                      border: Border.all(color: EasySitColors.errorBorder),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.timer_outlined,
                           size: 15,
-                          color: Colors.red.shade600,
+                          color: EasySitColors.error,
                         ),
                         const SizedBox(width: 6),
                         Text(
                           secs > 0
                               ? 'Auto-releasing in $secs s'
                               : 'Releasing now...',
-                          style: TextStyle(
-                            color: Colors.red.shade700,
+                          style: const TextStyle(
+                            color: EasySitColors.error,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
@@ -163,23 +164,23 @@ class ExpiryDialog extends StatelessWidget {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFFBEB),
+                  color: EasySitColors.warningBg,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFFDE68A)),
+                  border: Border.all(color: EasySitColors.warningBorder),
                 ),
-                child: Row(
+                child: const Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
+                  children: [
                     Icon(
                       Icons.warning_amber_rounded,
                       size: 15,
-                      color: Color(0xFFD97706),
+                      color: EasySitColors.warning,
                     ),
                     SizedBox(width: 6),
                     Text(
                       'Session expiring soon',
                       style: TextStyle(
-                        color: Color(0xFFD97706),
+                        color: EasySitColors.warning,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
@@ -189,12 +190,12 @@ class ExpiryDialog extends StatelessWidget {
               ),
 
             const SizedBox(height: 14),
-            Text(
+            const Text(
               'Would you like to extend your session by 4 minutes or release the seat for other students?',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
-                color: Colors.grey.shade600,
+                color: EasySitColors.bodyText,
                 height: 1.4,
               ),
             ),
@@ -207,8 +208,8 @@ class ExpiryDialog extends StatelessWidget {
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(context, false),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red.shade600,
-                      side: BorderSide(color: Colors.red.shade200),
+                      foregroundColor: EasySitColors.error,
+                      side: const BorderSide(color: EasySitColors.errorBorder),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
@@ -228,8 +229,8 @@ class ExpiryDialog extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: () => Navigator.pop(context, true),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2ECA7F),
-                      foregroundColor: Colors.white,
+                      backgroundColor: EasySitColors.primary,
+                      foregroundColor: EasySitColors.onPrimary,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
@@ -242,7 +243,7 @@ class ExpiryDialog extends StatelessWidget {
                         Icon(
                           Icons.add_circle_outline,
                           size: 17,
-                          color: Colors.white,
+                          color: EasySitColors.onPrimary,
                         ),
                         SizedBox(width: 6),
                         Text(

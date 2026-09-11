@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/notification_service.dart';
@@ -9,6 +10,7 @@ import 'student_home_screen.dart';
 import 'qr_scanner_screen.dart';
 import 'profile_screen.dart';
 import '../utils/app_page_route.dart';
+import '../utils/app_colors.dart';
 import '../widgets/notification_bell_button.dart';
 import '../widgets/reservation_expired_dialog.dart';
 
@@ -343,7 +345,7 @@ class _SessionScreenState extends State<SessionScreen>
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(24),
                 ),
-                backgroundColor: Colors.white,
+                backgroundColor: EasySitColors.surface,
                 child: Padding(
                   padding: const EdgeInsets.all(32.0),
                   child: Column(
@@ -352,15 +354,13 @@ class _SessionScreenState extends State<SessionScreen>
                       Container(
                         width: 80,
                         height: 80,
-                        decoration: BoxDecoration(
-                          color: const Color(
-                            0xFF2ECA7F,
-                          ).withValues(alpha: 0.15),
+                        decoration: const BoxDecoration(
+                          color: EasySitColors.successBg,
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
                           Icons.check_circle_outline,
-                          color: Color(0xFF2ECA7F),
+                          color: EasySitColors.success,
                           size: 40,
                         ),
                       ),
@@ -370,7 +370,7 @@ class _SessionScreenState extends State<SessionScreen>
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                          color: EasySitColors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -379,16 +379,16 @@ class _SessionScreenState extends State<SessionScreen>
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: Colors.black87,
+                          color: EasySitColors.textPrimary,
                         ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 8),
-                      Text(
+                      const Text(
                         'Thank you for using EasySit!',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey.shade600,
+                          color: EasySitColors.secondaryText,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -410,7 +410,8 @@ class _SessionScreenState extends State<SessionScreen>
                             }
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2ECA7F),
+                            backgroundColor: EasySitColors.primary,
+                            foregroundColor: EasySitColors.onPrimary,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
                             ),
@@ -419,14 +420,14 @@ class _SessionScreenState extends State<SessionScreen>
                           child: const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.check, color: Colors.white, size: 20),
+                              Icon(Icons.check, color: EasySitColors.onPrimary, size: 20),
                               SizedBox(width: 8),
                               Text(
                                 'OK',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.white,
+                                  color: EasySitColors.onPrimary,
                                 ),
                               ),
                             ],
@@ -444,7 +445,7 @@ class _SessionScreenState extends State<SessionScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error releasing: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: EasySitColors.error,
           ),
         );
       }
@@ -486,7 +487,7 @@ class _SessionScreenState extends State<SessionScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('⏰ Session expired. Seat released automatically.'),
-          backgroundColor: Colors.red,
+          backgroundColor: EasySitColors.error,
         ),
       );
     }
@@ -526,7 +527,7 @@ class _SessionScreenState extends State<SessionScreen>
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(24),
             ),
-            backgroundColor: Colors.white,
+            backgroundColor: EasySitColors.surface,
             elevation: 8,
             child: Padding(
               padding: const EdgeInsets.symmetric(
@@ -540,12 +541,12 @@ class _SessionScreenState extends State<SessionScreen>
                     width: 68,
                     height: 68,
                     decoration: const BoxDecoration(
-                      color: Color(0xFFFFEBEE),
+                      color: EasySitColors.errorBg,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       isRelease ? Icons.output_rounded : Icons.cancel_outlined,
-                      color: Colors.red.shade600,
+                      color: EasySitColors.error,
                       size: 34,
                     ),
                   ),
@@ -555,7 +556,7 @@ class _SessionScreenState extends State<SessionScreen>
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                      color: EasySitColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -563,9 +564,9 @@ class _SessionScreenState extends State<SessionScreen>
                     isRelease
                         ? 'Are you sure you want to end your session? Seat $seatNum will be released and made available for other students.'
                         : 'Are you sure you want to cancel your reservation for Seat $seatNum? The seat will be released immediately.',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 14,
-                      color: Colors.grey.shade600,
+                      color: EasySitColors.secondaryText,
                       height: 1.4,
                     ),
                     textAlign: TextAlign.center,
@@ -578,17 +579,17 @@ class _SessionScreenState extends State<SessionScreen>
                           onPressed: () => Navigator.of(ctx).pop(false),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            side: BorderSide(color: Colors.grey.shade300),
+                            side: const BorderSide(color: EasySitColors.divider),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
                             ),
                           ),
-                          child: Text(
+                          child: const Text(
                             'Keep Seat',
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
-                              color: Colors.grey.shade700,
+                              color: EasySitColors.secondaryText,
                             ),
                           ),
                         ),
@@ -598,7 +599,8 @@ class _SessionScreenState extends State<SessionScreen>
                         child: ElevatedButton(
                           onPressed: () => Navigator.of(ctx).pop(true),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red.shade600,
+                            backgroundColor: EasySitColors.error,
+                            foregroundColor: EasySitColors.onPrimary,
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
@@ -610,7 +612,7 @@ class _SessionScreenState extends State<SessionScreen>
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: EasySitColors.onPrimary,
                             ),
                           ),
                         ),
@@ -672,53 +674,57 @@ class _SessionScreenState extends State<SessionScreen>
   @override
   Widget build(BuildContext context) {
     final scaffold = Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
+      backgroundColor: EasySitColors.appBackground,
+      appBar: AppBar(
+        toolbarHeight: 84,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        automaticallyImplyLeading: false,
+        backgroundColor: EasySitColors.appBackground,
+        systemOverlayStyle: const SystemUiOverlayStyle(
+          statusBarColor: EasySitColors.appBackground,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
+        titleSpacing: 20,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Top Bar
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _activeBooking == null
-                            ? 'My session'
-                            : (_bookingStatus == 'pending'
-                                ? 'Pending Confirmation'
-                                : "You're all set"),
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _activeBooking == null
-                            ? 'No active session'
-                            : (_bookingStatus == 'pending'
-                                ? 'Please scan the QR on the seat'
-                                : 'Your session has started successfully'),
-                        style: TextStyle(
-                          color: Colors.grey.shade500,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const NotificationBellButton(),
-                ],
+            Text(
+              _activeBooking == null
+                  ? 'My session'
+                  : (_bookingStatus == 'pending'
+                      ? 'Pending Confirmation'
+                      : "You're all set"),
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: EasySitColors.textPrimary,
               ),
             ),
-            Expanded(child: _buildBody()),
+            const SizedBox(height: 4),
+            Text(
+              _activeBooking == null
+                  ? 'No active session'
+                  : (_bookingStatus == 'pending'
+                      ? 'Please scan the QR on the seat'
+                      : 'Your session has started successfully'),
+              style: const TextStyle(
+                color: EasySitColors.secondaryText,
+                fontSize: 13,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
           ],
         ),
+        actions: const [
+          NotificationBellButton(),
+          SizedBox(width: 20),
+        ],
       ),
+      body: _buildBody(),
       bottomNavigationBar: widget.isTab
           ? null
           : AppBottomNav(
@@ -752,25 +758,29 @@ class _SessionScreenState extends State<SessionScreen>
   Widget _buildBody() {
     if (_isLoading) {
       return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF2ECA7F)),
+        child: CircularProgressIndicator(color: EasySitColors.primary),
       );
     }
 
     if (_activeBooking == null) {
-      return Center(
+      return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.event_seat, size: 64, color: Colors.grey.shade300),
-            const SizedBox(height: 16),
-            const Text(
+            Icon(Icons.event_seat, size: 64, color: EasySitColors.secondaryText),
+            SizedBox(height: 16),
+            Text(
               'No Active Session',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: EasySitColors.textPrimary,
+              ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(
               'Find and book a seat to start your session',
-              style: TextStyle(color: Colors.grey.shade500),
+              style: TextStyle(color: EasySitColors.secondaryText),
             ),
           ],
         ),
@@ -780,26 +790,26 @@ class _SessionScreenState extends State<SessionScreen>
     bool isPending = _bookingStatus == 'pending';
     bool isBooked = _bookingStatus == 'booked';
 
-    // Yellow mix orange for pending state, Green for active state
+    // Yellow-mix-orange for pending state, Green for active state
     final Color primaryThemeColor = isPending
-        ? const Color(0xFFF59E0B) // Amber / Yellow-orange
-        : const Color(0xFF2ECA7F); // Fresh Theme Green
+        ? EasySitColors.pendingPrimary
+        : EasySitColors.successFg;
 
     final Color darkTextColor = isPending
-        ? const Color(0xFF9A3412) // Deep warm amber-orange
-        : const Color(0xFF0F5132); // Deep forest green
+        ? EasySitColors.pendingDark
+        : EasySitColors.successFg;
 
     final Color softBgColor = isPending
-        ? const Color(0xFFFFFBEB) // Soft yellow-orange tint
-        : const Color(0xFFF2FAF5); // Soft green tint
+        ? EasySitColors.pendingBg
+        : EasySitColors.successBg;
 
     final Color badgeBgColor = isPending
-        ? const Color(0xFFFEF3C7) // Light yellow-orange badge bg
-        : const Color(0xFFE8F7F0); // Light green badge bg
+        ? EasySitColors.pendingBadge
+        : EasySitColors.successBorder;
 
     final Color accentColor = isPending
-        ? const Color(0xFFD97706) // Rich yellow-orange for text/icons
-        : const Color(0xFF2ECA7F);
+        ? EasySitColors.pendingDark
+        : EasySitColors.successFg;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
@@ -943,8 +953,8 @@ class _SessionScreenState extends State<SessionScreen>
                         strokeWidth: 11,
                         backgroundColor:
                             isPending
-                                ? const Color(0xFFFEF3C7)
-                                : const Color(0xFFEBEFEF),
+                                ? EasySitColors.pendingBorder
+                                : EasySitColors.subtleSurface,
                         color: primaryThemeColor,
                         strokeCap: StrokeCap.round,
                       ),
@@ -1008,11 +1018,11 @@ class _SessionScreenState extends State<SessionScreen>
                           ),
                         ),
                         const SizedBox(height: 10),
-                        Text(
+                        const Text(
                           'TOTAL DURATION',
                           style: TextStyle(
                             fontSize: 11,
-                            color: Colors.grey.shade600,
+                            color: EasySitColors.secondaryText,
                             letterSpacing: 1.1,
                           ),
                         ),
@@ -1053,8 +1063,8 @@ class _SessionScreenState extends State<SessionScreen>
               border: Border.all(
                 color:
                     isPending
-                        ? const Color(0xFFFDE68A)
-                        : const Color(0xFFD1FAE5),
+                        ? EasySitColors.pendingBorder
+                        : EasySitColors.successBorder,
                 width: 1.2,
               ),
             ),
@@ -1064,7 +1074,7 @@ class _SessionScreenState extends State<SessionScreen>
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: const BoxDecoration(
-                    color: Colors.white,
+                    color: EasySitColors.surface,
                     borderRadius: BorderRadius.all(Radius.circular(16)),
                   ),
                   child: Icon(
@@ -1082,11 +1092,11 @@ class _SessionScreenState extends State<SessionScreen>
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          const Text(
                             'Seat ID',
                             style: TextStyle(
                               fontSize: 13,
-                              color: Colors.grey.shade500,
+                              color: EasySitColors.secondaryText,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -1104,7 +1114,7 @@ class _SessionScreenState extends State<SessionScreen>
                       Container(
                         height: 40,
                         width: 1,
-                        color: Colors.grey.shade300,
+                        color: EasySitColors.divider,
                         margin: const EdgeInsets.symmetric(horizontal: 16),
                       ),
                       Expanded(
@@ -1116,15 +1126,15 @@ class _SessionScreenState extends State<SessionScreen>
                               style: const TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.black87,
+                                color: EasySitColors.textPrimary,
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               '${_activeBooking!['buildingName'] ?? 'Admin'} • ${_activeBooking!['floorName'] ?? 'Floor 6'}',
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 11,
-                                color: Colors.grey.shade500,
+                                color: EasySitColors.secondaryText,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -1153,7 +1163,8 @@ class _SessionScreenState extends State<SessionScreen>
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF59E0B), // Warm yellow-mix-orange
+                      backgroundColor: EasySitColors.pendingPrimary,
+                      foregroundColor: EasySitColors.onPrimary,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
@@ -1165,7 +1176,7 @@ class _SessionScreenState extends State<SessionScreen>
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: EasySitColors.onPrimary,
                       ),
                     ),
                   ),
@@ -1182,8 +1193,8 @@ class _SessionScreenState extends State<SessionScreen>
                       }
                     },
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red.shade600,
-                      side: BorderSide(color: Colors.red.shade200),
+                      foregroundColor: EasySitColors.error,
+                      side: const BorderSide(color: EasySitColors.errorBorder),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
@@ -1204,14 +1215,12 @@ class _SessionScreenState extends State<SessionScreen>
             Container(
               width: double.infinity,
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(
-                  24,
-                ), // Match upper card radius
-                border: Border.all(color: Colors.red.shade200, width: 1.5),
+                color: EasySitColors.surface,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: EasySitColors.errorBorder, width: 1.5),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.red.withValues(alpha: 0.05), // Softer shadow
+                    color: EasySitColors.cardShadow,
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -1223,31 +1232,29 @@ class _SessionScreenState extends State<SessionScreen>
                   borderRadius: BorderRadius.circular(24),
                   onTap: _manualReleaseSeat,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 16,
-                    ), // Tighter padding for height match
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                     child: Column(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.output_rounded,
-                          color: Colors.red.shade500,
+                          color: EasySitColors.error,
                           size: 32,
                         ),
                         const SizedBox(height: 8),
-                        Text(
+                        const Text(
                           'Release Seat',
                           style: TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.bold,
-                            color: Colors.red.shade600,
+                            color: EasySitColors.error,
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Text(
+                        const Text(
                           'End session and make seat available',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey.shade600,
+                            color: EasySitColors.secondaryText,
                           ),
                         ),
                       ],
@@ -1256,6 +1263,7 @@ class _SessionScreenState extends State<SessionScreen>
                 ),
               ),
             ),
+          const SizedBox(height: 100),
         ],
       ),
     );

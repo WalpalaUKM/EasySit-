@@ -11,6 +11,7 @@ import '../widgets/swipe_navigation_wrapper.dart';
 import '../utils/app_page_route.dart';
 import '../widgets/notification_bell_button.dart';
 import '../services/seat_expiry_service.dart';
+import '../utils/app_colors.dart';
 
 class SeatBookingScreen extends StatefulWidget {
   final String roomId;
@@ -214,17 +215,17 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                     width: 64,
                     height: 64,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEEF2FF),
+                      color: EasySitColors.primaryTint,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: const Color(0xFF5C55F2).withValues(alpha: 0.15),
+                        color: EasySitColors.softBlueBorder,
                         width: 1.5,
                       ),
                     ),
                     child: const Center(
                       child: Icon(
                         Icons.chair_rounded,
-                        color: Color(0xFF5C55F2),
+                        color: EasySitColors.primary,
                         size: 32,
                       ),
                     ),
@@ -250,7 +251,7 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
+                      color: EasySitColors.primaryTint,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
@@ -259,16 +260,16 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                         const Icon(
                           Icons.location_on_outlined,
                           size: 15,
-                          color: Color(0xFF5C55F2),
+                          color: EasySitColors.primary,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           'Seat $seatNumber • ${widget.roomName}',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade700,
+                            color: EasySitColors.bodyText,
                           ),
                         ),
                       ],
@@ -280,10 +281,10 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFF9E6),
+                      color: EasySitColors.warningBg,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: const Color(0xFFFFD54F),
+                        color: EasySitColors.warningBorder,
                         width: 1,
                       ),
                     ),
@@ -292,26 +293,26 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                       children: [
                         const Icon(
                           Icons.timer_outlined,
-                          color: Color(0xFFE65100),
+                          color: EasySitColors.warningFg,
                           size: 22,
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: RichText(
-                            text: TextSpan(
+                            text: const TextSpan(
                               style: TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 13,
-                                color: Colors.grey.shade800,
+                                color: EasySitColors.bodyText,
                                 height: 1.4,
                               ),
-                              children: const [
+                              children: [
                                 TextSpan(text: 'You have '),
                                 TextSpan(
                                   text: '10 minutes',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFFE65100),
+                                    color: EasySitColors.warningFg,
                                   ),
                                 ),
                                 TextSpan(
@@ -337,18 +338,18 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                           child: OutlinedButton(
                             onPressed: () => Navigator.pop(context, false),
                             style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: Colors.grey.shade300),
+                              side: const BorderSide(color: EasySitColors.divider),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
                               ),
                             ),
-                            child: Text(
+                            child: const Text(
                               'Cancel',
                               style: TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.grey.shade700,
+                                color: EasySitColors.secondaryText,
                               ),
                             ),
                           ),
@@ -363,8 +364,8 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                           child: ElevatedButton(
                             onPressed: () => Navigator.pop(context, true),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF5C55F2),
-                              foregroundColor: Colors.white,
+                              backgroundColor: EasySitColors.primary,
+                              foregroundColor: EasySitColors.onPrimary,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
@@ -415,7 +416,7 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Error: $e'), backgroundColor: EasySitColors.error),
         );
       }
     }
@@ -429,7 +430,7 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(24),
             ),
-            backgroundColor: Colors.white,
+            backgroundColor: EasySitColors.surface,
             elevation: 10,
             insetPadding: const EdgeInsets.symmetric(
               horizontal: 24,
@@ -444,17 +445,17 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                     width: 64,
                     height: 64,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFEBEE),
+                      color: EasySitColors.errorBg,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: Colors.red.withValues(alpha: 0.2),
+                        color: EasySitColors.errorBorder,
                         width: 1.5,
                       ),
                     ),
                     child: const Center(
                       child: Icon(
                         Icons.cancel_outlined,
-                        color: Colors.red,
+                        color: EasySitColors.error,
                         size: 32,
                       ),
                     ),
@@ -466,17 +467,17 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                       fontFamily: 'Inter',
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
+                      color: EasySitColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Are you sure you want to release Seat $seatNumber?',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 14,
-                      color: Colors.grey.shade600,
+                      color: EasySitColors.secondaryText,
                       height: 1.4,
                     ),
                   ),
@@ -489,8 +490,8 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                           child: OutlinedButton(
                             onPressed: () => Navigator.pop(context, false),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF64748B),
-                              side: BorderSide(color: Colors.grey.shade300),
+                              foregroundColor: EasySitColors.secondaryText,
+                              side: const BorderSide(color: EasySitColors.divider),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -509,8 +510,8 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                           child: ElevatedButton(
                             onPressed: () => Navigator.pop(context, true),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red.shade600,
-                              foregroundColor: Colors.white,
+                              backgroundColor: EasySitColors.error,
+                              foregroundColor: EasySitColors.onPrimary,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -544,14 +545,14 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Seat $seatNumber released.'),
-            backgroundColor: Colors.green,
+            backgroundColor: EasySitColors.success,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Error: $e'), backgroundColor: EasySitColors.error),
         );
       }
     }
@@ -619,7 +620,7 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
           }
         },
         child: Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: EasySitColors.appBackground,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -638,13 +639,13 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                         style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
+                          color: EasySitColors.textPrimary,
                         ),
                       ),
                       Text(
                         'Admin • ${widget.buildingName} • ${widget.floorName}',
-                        style: TextStyle(
-                          color: Colors.grey.shade500,
+                        style: const TextStyle(
+                          color: EasySitColors.secondaryText,
                           fontSize: 13,
                         ),
                       ),
@@ -656,13 +657,7 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
             ),
             Expanded(
               child: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFFF5F7FA), Colors.white],
-                  ),
-                ),
+                color: EasySitColors.appBackground,
                 child: StreamBuilder<QuerySnapshot>(
                   stream: _seatStream,
                   builder: (context, snapshot) {
@@ -681,14 +676,14 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                             Icon(
                               Icons.event_seat,
                               size: 64,
-                              color: Colors.grey,
+                              color: EasySitColors.secondaryText,
                             ),
                             SizedBox(height: 16),
                             Text(
                               'No seats available in this room',
                               style: TextStyle(
                                 fontSize: 18,
-                                color: Colors.grey,
+                                color: EasySitColors.secondaryText,
                               ),
                             ),
                           ],
@@ -718,11 +713,13 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                         children: [
                           Row(
                             children: [
-                              _legendItem(Colors.green.shade600, 'Available'),
+                              _legendItem(EasySitColors.seatAvailableFill, EasySitColors.seatAvailableText, 'Available'),
                               const SizedBox(width: 12),
-                              _legendItem(Colors.amber.shade600, 'Pending'),
+                              _legendItem(EasySitColors.seatPendingFill, EasySitColors.seatPendingText, 'Pending'),
                               const SizedBox(width: 12),
-                              _legendItem(Colors.red.shade600, 'Booked'),
+                              _legendItem(EasySitColors.seatOccupiedFill, EasySitColors.seatOccupiedText, 'Booked'),
+                              const SizedBox(width: 12),
+                              _legendItem(EasySitColors.seatSelectedFill, Colors.white, 'My Seat', isFilled: true),
                             ],
                           ),
                           const SizedBox(height: 16),
@@ -768,18 +765,18 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                                 VoidCallback? onTap;
 
                                 if (effectiveStatus == 'available') {
-                                  bgColor = Colors.green.shade50;
-                                  borderColor = Colors.green.shade400;
-                                  iconColor = Colors.green.shade600;
-                                  textColor = Colors.green.shade800;
+                                  bgColor = EasySitColors.seatAvailableFill;
+                                  borderColor = EasySitColors.seatAvailableText;
+                                  iconColor = EasySitColors.seatAvailableText;
+                                  textColor = EasySitColors.seatAvailableText;
                                   onTap =
                                       () => _reserveSeat(seatId, seatNumber);
                                 } else if (effectiveStatus == 'pending') {
                                   isMine = pendingBy == myUid;
-                                  bgColor = Colors.amber.shade50;
-                                  borderColor = Colors.amber.shade400;
-                                  iconColor = Colors.amber.shade700;
-                                  textColor = Colors.amber.shade900;
+                                  bgColor = EasySitColors.seatPendingFill;
+                                  borderColor = isMine ? EasySitColors.primary : EasySitColors.seatPendingText;
+                                  iconColor = EasySitColors.seatPendingText;
+                                  textColor = EasySitColors.seatPendingText;
                                   if (isMine) {
                                     onTap =
                                         () =>
@@ -792,30 +789,31 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                                           content: Text(
                                             'Seat $seatNumber is currently pending confirmation by another student.',
                                           ),
-                                          backgroundColor: const Color(0xFFD97706),
+                                          backgroundColor: EasySitColors.warningFg,
                                           duration: const Duration(seconds: 2),
                                         ),
                                       );
                                     };
                                   }
                                 } else {
+                                  // Booked or occupied
                                   isMine = bookedBy == myUid;
                                   bgColor =
                                       isMine
-                                          ? Colors.blue.shade50
-                                          : Colors.red.shade50;
+                                          ? EasySitColors.seatSelectedFill
+                                          : EasySitColors.seatOccupiedFill;
                                   borderColor =
                                       isMine
-                                          ? Colors.blue.shade400
-                                          : Colors.red.shade400;
+                                          ? EasySitColors.focusRing
+                                          : EasySitColors.divider;
                                   iconColor =
                                       isMine
-                                          ? Colors.blue.shade600
-                                          : Colors.red.shade600;
+                                          ? EasySitColors.onPrimary
+                                          : EasySitColors.seatOccupiedText;
                                   textColor =
                                       isMine
-                                          ? Colors.blue.shade800
-                                          : Colors.red.shade800;
+                                          ? EasySitColors.onPrimary
+                                          : EasySitColors.seatOccupiedText;
                                 }
 
                                 return GestureDetector(
@@ -827,13 +825,11 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                                       borderRadius: BorderRadius.circular(14),
                                       border: Border.all(
                                         color: borderColor,
-                                        width: 2.5,
+                                        width: 2.0,
                                       ),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: borderColor.withValues(
-                                            alpha: 0.15,
-                                          ),
+                                          color: EasySitColors.cardShadow,
                                           blurRadius: 6,
                                           offset: const Offset(0, 2),
                                         ),
@@ -845,11 +841,11 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                                       children: [
                                         Icon(
                                           isMine
-                                              ? Icons.person
+                                              ? (effectiveStatus == 'pending' ? Icons.access_time_rounded : Icons.check_circle_outline)
                                               : (effectiveStatus == 'pending'
-                                                  ? Icons.hourglass_top_rounded
-                                                  : Icons.event_seat),
-                                          size: 26,
+                                                  ? Icons.access_time_rounded
+                                                  : (effectiveStatus == 'available' ? Icons.event_seat : Icons.lock_outline)),
+                                          size: 24,
                                           color: iconColor,
                                         ),
                                         const SizedBox(height: 6),
@@ -871,16 +867,16 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                                               vertical: 2,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: Colors.amber.shade100,
+                                              color: EasySitColors.warningBorder,
                                               borderRadius:
                                                   BorderRadius.circular(6),
                                             ),
                                             child: Text(
                                               isMine ? 'Mine' : 'Pending',
-                                              style: TextStyle(
+                                              style: const TextStyle(
                                                 fontSize: 8,
                                                 fontWeight: FontWeight.w600,
-                                                color: Colors.amber.shade900,
+                                                color: EasySitColors.warningFg,
                                               ),
                                             ),
                                           ),
@@ -910,21 +906,22 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
 );
 }
 
-  Widget _legendItem(Color color, String label) {
+  Widget _legendItem(Color fill, Color border, String label, {bool isFilled = false}) {
     return Row(
       children: [
         Container(
           width: 14,
           height: 14,
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.15),
+            color: fill,
             borderRadius: BorderRadius.circular(3),
-            border: Border.all(color: color, width: 2),
+            border: Border.all(color: border, width: 1.5),
           ),
         ),
         const SizedBox(width: 4),
-        Text(label, style: TextStyle(fontSize: 12, color: color)),
+        Text(label, style: TextStyle(fontSize: 11, color: isFilled ? EasySitColors.textPrimary : border, fontWeight: FontWeight.w600)),
       ],
     );
   }
 }
+

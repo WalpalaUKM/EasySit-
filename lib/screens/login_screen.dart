@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 import '../utils/app_page_route.dart';
+import '../utils/app_colors.dart';
 import '../services/auth_persistence_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -40,7 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter both your credentials and password.'),
-          backgroundColor: Colors.red,
+          backgroundColor: EasySitColors.errorFg,
         ),
       );
       return;
@@ -104,7 +105,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('You are temporarily blocked by the admin.'),
-                backgroundColor: Colors.red,
+                backgroundColor: EasySitColors.errorFg,
               ),
             );
             setState(() => _isLoading = false);
@@ -132,13 +133,13 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message), backgroundColor: Colors.red),
+          SnackBar(content: Text(message), backgroundColor: EasySitColors.errorFg),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Error: $e'), backgroundColor: EasySitColors.errorFg),
         );
       }
     } finally {
@@ -149,7 +150,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: EasySitColors.appBackground,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -164,7 +165,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.06),
+                        color: const Color(0xFF0F172A).withValues(alpha: 0.08),
                         blurRadius: 20,
                         offset: const Offset(0, 4),
                       ),
@@ -177,7 +178,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     errorBuilder:
                         (_, __, ___) => const Icon(
                           Icons.error,
-                          color: Color(0xFF0D6EFD),
+                          color: EasySitColors.primary,
                           size: 60,
                         ),
                   ),
@@ -186,25 +187,32 @@ class _LoginScreenState extends State<LoginScreen> {
                 // Text Fields
                 TextField(
                   controller: _studentNumberController,
+                  style: const TextStyle(color: EasySitColors.mainText),
                   decoration: InputDecoration(
                     labelText: 'Student Number',
+                    labelStyle: const TextStyle(color: EasySitColors.bodyText),
                     hintText: 'e.g. CT20xxxxx',
+                    hintStyle: const TextStyle(color: EasySitColors.secondaryText),
                     filled: true,
-                    fillColor: Colors.grey.shade50,
+                    fillColor: EasySitColors.surface,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
+                      borderSide: const BorderSide(color: EasySitColors.divider),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: EasySitColors.divider),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                        color: Color(0xFF0D6EFD),
+                        color: EasySitColors.primary,
                         width: 2,
                       ),
                     ),
                     prefixIcon: const Icon(
                       Icons.badge,
-                      color: Color(0xFF0D6EFD),
+                      color: EasySitColors.primary,
                     ),
                   ),
                 ),
@@ -212,32 +220,39 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
+                  style: const TextStyle(color: EasySitColors.mainText),
                   decoration: InputDecoration(
                     labelText: 'Password',
+                    labelStyle: const TextStyle(color: EasySitColors.bodyText),
                     hintText: 'At least 6 characters',
+                    hintStyle: const TextStyle(color: EasySitColors.secondaryText),
                     filled: true,
-                    fillColor: Colors.grey.shade50,
+                    fillColor: EasySitColors.surface,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
+                      borderSide: const BorderSide(color: EasySitColors.divider),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: EasySitColors.divider),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                        color: Color(0xFF0D6EFD),
+                        color: EasySitColors.primary,
                         width: 2,
                       ),
                     ),
                     prefixIcon: const Icon(
                       Icons.lock,
-                      color: Color(0xFF0D6EFD),
+                      color: EasySitColors.primary,
                     ),
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePassword
                             ? Icons.visibility_off
                             : Icons.visibility,
-                        color: Colors.grey,
+                        color: EasySitColors.secondaryText,
                       ),
                       onPressed:
                           () => setState(
@@ -265,18 +280,18 @@ class _LoginScreenState extends State<LoginScreen> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            activeColor: const Color(0xFF0D6EFD),
-                            side: BorderSide(
-                              color: Colors.grey.shade500,
+                            activeColor: EasySitColors.primary,
+                            side: const BorderSide(
+                              color: EasySitColors.inputBorder,
                               width: 1.5,
                             ),
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
+                        const Text(
                           'Remember me',
                           style: TextStyle(
-                            color: Colors.grey.shade700,
+                            color: EasySitColors.bodyText,
                             fontSize: 14,
                           ),
                         ),
@@ -296,7 +311,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: const Text(
                         'Forgot Password?',
                         style: TextStyle(
-                          color: Color(0xFF0D6EFD),
+                          color: EasySitColors.primary,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
@@ -311,7 +326,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _login,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0D6EFD),
+                      backgroundColor: EasySitColors.primary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -330,7 +345,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             : const Text(
                               'Login',
                               style: TextStyle(
-                                color: Colors.white,
+                                color: EasySitColors.onPrimary,
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -341,10 +356,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
+                    const Text(
                       "Don't have an account?",
                       style: TextStyle(
-                        color: Colors.grey.shade600,
+                        color: EasySitColors.secondaryText,
                         fontSize: 14,
                       ),
                     ),
@@ -359,7 +374,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: const Text(
                         'Sign Up',
                         style: TextStyle(
-                          color: Color(0xFF0D6EFD),
+                          color: EasySitColors.primary,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),

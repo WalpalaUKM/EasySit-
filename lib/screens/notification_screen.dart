@@ -8,6 +8,7 @@ import 'profile_screen.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/swipe_navigation_wrapper.dart';
 import '../utils/app_page_route.dart';
+import '../utils/app_colors.dart';
 import '../services/notification_service.dart';
 
 class NotificationScreen extends StatefulWidget {
@@ -96,7 +97,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
               ),
             ],
           ),
-          backgroundColor: const Color(0xFF0F172A),
+          backgroundColor: EasySitColors.textPrimary,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -121,14 +122,14 @@ class _NotificationScreenState extends State<NotificationScreen> {
         enableSwipeBack: true,
         onSwipeBack: _onBack,
         child: Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
+        backgroundColor: EasySitColors.appBackground,
         appBar: AppBar(
           toolbarHeight: 70,
           elevation: 0,
           scrolledUnderElevation: 0,
           automaticallyImplyLeading: false,
-          backgroundColor: const Color(0xFFF8FAFC),
-          foregroundColor: Colors.black,
+          backgroundColor: EasySitColors.appBackground,
+          foregroundColor: EasySitColors.textPrimary,
           leadingWidth: 64,
           leading: Padding(
             padding: const EdgeInsets.only(left: 16.0),
@@ -139,12 +140,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: EasySitColors.surface,
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.grey.shade200),
+                    border: Border.all(color: EasySitColors.divider),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
+                        color: EasySitColors.cardShadow,
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -154,7 +155,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     child: Icon(
                       Icons.arrow_back_ios_new,
                       size: 18,
-                      color: Colors.black,
+                      color: EasySitColors.textPrimary,
                     ),
                   ),
                 ),
@@ -163,7 +164,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
           ),
           title: const Text(
             'Notifications',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: EasySitColors.textPrimary),
           ),
           centerTitle: true,
           actions: [
@@ -174,7 +175,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 child: const Text(
                   'Clear All',
                   style: TextStyle(
-                    color: Color(0xFF5C55F2),
+                    color: EasySitColors.primary,
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
@@ -201,7 +202,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         NotificationService.clearedNotifier.value == null) {
                       return const Center(
                         child: CircularProgressIndicator(
-                          color: Color(0xFF5C55F2),
+                          color: EasySitColors.primary,
                         ),
                       );
                     }
@@ -328,7 +329,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                                             fontFamily: 'Inter',
                                             fontSize: 18,
                                             fontWeight: FontWeight.bold,
-                                            color: Colors.black87,
+                                            color: EasySitColors.textPrimary,
                                           ),
                                         ),
                                       ),
@@ -369,15 +370,15 @@ class _NotificationScreenState extends State<NotificationScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: EasySitColors.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.grey.shade100,
+          color: EasySitColors.divider,
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: EasySitColors.cardShadow,
             blurRadius: 10,
             spreadRadius: 0,
             offset: const Offset(0, 3),
@@ -433,7 +434,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                                 fontFamily: 'Inter',
                                 fontWeight: FontWeight.bold,
                                 fontSize: 15.5,
-                                color: Colors.black87,
+                                color: EasySitColors.textPrimary,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -443,11 +444,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
                           if (timeOnlyStr.isNotEmpty)
                             Text(
                               timeOnlyStr,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
-                                color: Colors.grey.shade500,
+                                color: EasySitColors.secondaryText,
                               ),
                             ),
                         ],
@@ -457,10 +458,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         message,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 13,
-                          color: Colors.grey.shade600,
+                          color: EasySitColors.bodyText,
                           height: 1.35,
                         ),
                       ),
@@ -470,7 +471,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 const SizedBox(width: 8),
                 const Icon(
                   Icons.chevron_right_rounded,
-                  color: Colors.black87,
+                  color: EasySitColors.secondaryText,
                   size: 24,
                 ),
               ],
@@ -531,9 +532,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
         lowerMessage.contains('suggestions')) {
       return const _NotificationStyleConfig(
         icon: Icons.star_outline_rounded,
-        iconColor: Color(0xFFF59E0B),
-        backgroundColor: Color(0xFFFEF9E7),
-        borderColor: Color(0xFFFDE68A),
+        iconColor: EasySitColors.warning,
+        backgroundColor: EasySitColors.warningBg,
+        borderColor: EasySitColors.warningBorder,
       );
     }
 
@@ -541,13 +542,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
     if (lowerTitle.contains('extended') || lowerMessage.contains('extended')) {
       return const _NotificationStyleConfig(
         icon: Icons.check_circle_outline_rounded,
-        iconColor: Color(0xFF10B981),
-        backgroundColor: Color(0xFFE8F8F0),
-        borderColor: Color(0xFFA7F3D0),
+        iconColor: EasySitColors.success,
+        backgroundColor: EasySitColors.successBg,
+        borderColor: EasySitColors.successBorder,
       );
     }
 
-    // 3. Session Ended / Released / Expired
+    // 3. Session Ended / Released / Expired / Cancelled
     if (lowerTitle.contains('ended') ||
         lowerTitle.contains('released') ||
         lowerTitle.contains('cancelled') ||
@@ -556,9 +557,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
         lowerMessage.contains('released')) {
       return const _NotificationStyleConfig(
         icon: Icons.logout_rounded,
-        iconColor: Color(0xFFEF4444),
-        backgroundColor: Color(0xFFFFEEEE),
-        borderColor: Color(0xFFFECACA),
+        iconColor: EasySitColors.error,
+        backgroundColor: EasySitColors.errorBg,
+        borderColor: EasySitColors.errorBorder,
       );
     }
 
@@ -571,9 +572,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
         lowerMessage.contains('expire in')) {
       return const _NotificationStyleConfig(
         icon: Icons.notifications_none_rounded,
-        iconColor: Color(0xFFF59E0B),
-        backgroundColor: Color(0xFFFEF9E7),
-        borderColor: Color(0xFFFDE68A),
+        iconColor: EasySitColors.warning,
+        backgroundColor: EasySitColors.warningBg,
+        borderColor: EasySitColors.warningBorder,
       );
     }
 
@@ -584,9 +585,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
         lowerMessage.contains('started successfully')) {
       return const _NotificationStyleConfig(
         icon: Icons.access_time_rounded,
-        iconColor: Color(0xFF3B82F6),
-        backgroundColor: Color(0xFFEFF4FF),
-        borderColor: Color(0xFFBFDBFE),
+        iconColor: EasySitColors.primary,
+        backgroundColor: EasySitColors.primaryTint,
+        borderColor: EasySitColors.softBlueBorder,
       );
     }
 
@@ -598,8 +599,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
         lowerTitle.contains('broadcast')) {
       return const _NotificationStyleConfig(
         icon: Icons.campaign_outlined,
-        iconColor: Color(0xFF8B5CF6),
-        backgroundColor: Color(0xFFF5EEFD),
+        iconColor: EasySitColors.purpleAccent,
+        backgroundColor: EasySitColors.accentTint,
         borderColor: Color(0xFFDDD6FE),
       );
     }
@@ -607,9 +608,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
     // 7. Default
     return const _NotificationStyleConfig(
       icon: Icons.notifications_active_outlined,
-      iconColor: Color(0xFF5C55F2),
-      backgroundColor: Color(0xFFEEF2FF),
-      borderColor: Color(0xFFC7D2FE),
+      iconColor: EasySitColors.primary,
+      backgroundColor: EasySitColors.primaryTint,
+      borderColor: EasySitColors.softBlueBorder,
     );
   }
 
@@ -649,7 +650,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(28),
           ),
-          backgroundColor: Colors.white,
+          backgroundColor: EasySitColors.surface,
           elevation: 12,
           insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           child: Padding(
@@ -684,7 +685,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                           fontFamily: 'Inter',
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
+                          color: EasySitColors.textPrimary,
                           letterSpacing: -0.2,
                         ),
                       ),
@@ -699,13 +700,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
                           width: 36,
                           height: 36,
                           decoration: const BoxDecoration(
-                            color: Color(0xFFF1F5F9),
+                            color: EasySitColors.subtleSurface,
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
                             Icons.close_rounded,
                             size: 20,
-                            color: Color(0xFF64748B),
+                            color: EasySitColors.secondaryText,
                           ),
                         ),
                       ),
@@ -722,9 +723,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       vertical: 5,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
+                      color: EasySitColors.subtleSurface,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      border: Border.all(color: EasySitColors.divider),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -732,7 +733,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         const Icon(
                           Icons.access_time_rounded,
                           size: 14,
-                          color: Color(0xFF64748B),
+                          color: EasySitColors.secondaryText,
                         ),
                         const SizedBox(width: 6),
                         Text(
@@ -741,7 +742,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                             fontFamily: 'Inter',
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
-                            color: Color(0xFF64748B),
+                            color: EasySitColors.secondaryText,
                           ),
                         ),
                       ],
@@ -755,16 +756,16 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
+                    color: EasySitColors.subtleSurface,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    border: Border.all(color: EasySitColors.divider),
                   ),
                   child: Text(
                     message,
                     style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 14.5,
-                      color: Color(0xFF334155),
+                      color: EasySitColors.bodyText,
                       height: 1.5,
                     ),
                   ),
@@ -780,9 +781,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         child: OutlinedButton(
                           onPressed: () => Navigator.pop(ctx),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF64748B),
+                            foregroundColor: EasySitColors.secondaryText,
                             side: const BorderSide(
-                              color: Color(0xFFCBD5E1),
+                              color: EasySitColors.divider,
                               width: 1.2,
                             ),
                             shape: RoundedRectangleBorder(
@@ -818,8 +819,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
                               );
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF10B981),
-                              foregroundColor: Colors.white,
+                              backgroundColor: EasySitColors.primary,
+                              foregroundColor: EasySitColors.onPrimary,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
@@ -854,14 +855,14 @@ class _NotificationScreenState extends State<NotificationScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
+            decoration: const BoxDecoration(
+              color: EasySitColors.primaryTint,
               shape: BoxShape.circle,
             ),
-            child: Icon(
+            child: const Icon(
               Icons.notifications_off_outlined,
               size: 64,
-              color: Colors.blue.shade200,
+              color: EasySitColors.softBlueBorder,
             ),
           ),
           const SizedBox(height: 24),
@@ -870,16 +871,16 @@ class _NotificationScreenState extends State<NotificationScreen> {
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color: EasySitColors.textPrimary,
             ),
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             "You're all caught up! We'll notify you\nwhen there's an update.",
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 15,
-              color: Colors.grey.shade500,
+              color: EasySitColors.secondaryText,
               height: 1.4,
             ),
           ),
