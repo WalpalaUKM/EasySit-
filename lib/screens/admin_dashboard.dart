@@ -1199,7 +1199,7 @@ class _ManageFloorsScreenState extends State<ManageFloorsScreen> {
                   builder: (context, snapshot) {
                     if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                       return DropdownButtonFormField<String>(
-                        initialValue: null,
+                        value: null,
                         items: const [],
                         hint: const Text('No Buildings'),
                         onChanged: null,
@@ -1220,7 +1220,7 @@ class _ManageFloorsScreenState extends State<ManageFloorsScreen> {
                       );
                     }).toList();
                     return DropdownButtonFormField<String>(
-                      initialValue: _selectedBuildingId,
+                      value: _selectedBuildingId,
                       items: items,
                       decoration: _buildEasySitInputDecoration(
                         labelText: 'Building',
@@ -1554,7 +1554,7 @@ class _ManageRoomsScreenState extends State<ManageRoomsScreen> {
                   builder: (context, snapshot) {
                     if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                       return DropdownButtonFormField<String>(
-                        initialValue: null,
+                        value: null,
                         items: const [],
                         hint: const Text('No Buildings'),
                         onChanged: null,
@@ -1575,7 +1575,7 @@ class _ManageRoomsScreenState extends State<ManageRoomsScreen> {
                       );
                     }).toList();
                     return DropdownButtonFormField<String>(
-                      initialValue: _selectedBuildingId,
+                      value: _selectedBuildingId,
                       items: items,
                       decoration: _buildEasySitInputDecoration(
                         labelText: 'Building',
@@ -1597,7 +1597,7 @@ class _ManageRoomsScreenState extends State<ManageRoomsScreen> {
                   builder: (context, snapshot) {
                     if (_selectedBuildingId == null) {
                       return DropdownButtonFormField<String>(
-                        initialValue: null,
+                        value: null,
                         items: const [],
                         hint: const Text('Select Building first', style: TextStyle(color: EasySitColors.secondaryText)),
                         onChanged: null,
@@ -1609,7 +1609,7 @@ class _ManageRoomsScreenState extends State<ManageRoomsScreen> {
                     }
                     if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                       return DropdownButtonFormField<String>(
-                        initialValue: null,
+                        value: null,
                         items: const [],
                         hint: const Text('No Floors'),
                         onChanged: null,
@@ -1630,7 +1630,7 @@ class _ManageRoomsScreenState extends State<ManageRoomsScreen> {
                       );
                     }).toList();
                     return DropdownButtonFormField<String>(
-                      initialValue: _selectedFloorId,
+                      value: _selectedFloorId,
                       items: items,
                       decoration: _buildEasySitInputDecoration(
                         labelText: 'Floor',
@@ -2382,7 +2382,7 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
                   builder: (context, snapshot) {
                     if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                       return DropdownButtonFormField<String>(
-                        initialValue: null,
+                        value: null,
                         items: const [],
                         hint: const Text('No Buildings'),
                         onChanged: null,
@@ -2404,7 +2404,7 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
                           );
                         }).toList();
                     return DropdownButtonFormField<String>(
-                      initialValue: _selectedBuildingId,
+                      value: _selectedBuildingId,
                       items: items,
                       decoration: _buildEasySitInputDecoration(
                         labelText: 'Building',
@@ -2428,7 +2428,7 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
                   builder: (context, snapshot) {
                     if (_selectedBuildingId == null) {
                       return DropdownButtonFormField<String>(
-                        initialValue: null,
+                        value: null,
                         items: const [],
                         hint: const Text('Select Building first', style: TextStyle(color: EasySitColors.secondaryText)),
                         onChanged: null,
@@ -2440,7 +2440,7 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
                     }
                     if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                       return DropdownButtonFormField<String>(
-                        initialValue: null,
+                        value: null,
                         items: const [],
                         hint: const Text('No Floors'),
                         onChanged: null,
@@ -2462,7 +2462,7 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
                           );
                         }).toList();
                     return DropdownButtonFormField<String>(
-                      initialValue: _selectedFloorId,
+                      value: _selectedFloorId,
                       items: items,
                       decoration: _buildEasySitInputDecoration(
                         labelText: 'Floor',
@@ -2485,7 +2485,7 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
                   builder: (context, snapshot) {
                     if (_selectedFloorId == null) {
                       return DropdownButtonFormField<String>(
-                        initialValue: null,
+                        value: null,
                         items: const [],
                         hint: const Text('Select Floor first', style: TextStyle(color: EasySitColors.secondaryText)),
                         onChanged: null,
@@ -2497,7 +2497,7 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
                     }
                     if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                       return DropdownButtonFormField<String>(
-                        initialValue: null,
+                        value: null,
                         items: const [],
                         hint: const Text('No Rooms'),
                         onChanged: null,
@@ -2519,7 +2519,7 @@ class _ManageSeatsScreenState extends State<ManageSeatsScreen> {
                           );
                         }).toList();
                     return DropdownButtonFormField<String>(
-                      initialValue: _selectedRoomId,
+                      value: _selectedRoomId,
                       items: items,
                       decoration: _buildEasySitInputDecoration(
                         labelText: 'Room',
@@ -3343,7 +3343,7 @@ class _StudentBehaviorScreenState extends State<StudentBehaviorScreen> {
                             const SizedBox(width: 8),
                             Switch(
                               value: isBlocked,
-                              activeThumbColor: EasySitColors.errorFg,
+                              activeColor: EasySitColors.errorFg,
                               onChanged: (value) => _toggleBlockStatus(doc.id, isBlocked),
                             ),
                           ],
