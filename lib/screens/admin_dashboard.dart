@@ -2538,6 +2538,636 @@ class _ManageFloorsScreenState extends State<ManageFloorsScreen> {
     setState(() => _isLoading = false);
   }
 
+  Future<void> _toggleFloorMaintenance(String floorId, String floorName, bool isBlocked, String? currentReason) async {
+    if (!isBlocked) {
+      // Close floor for maintenance
+      final reasonController = TextEditingController(text: currentReason ?? 'Facility maintenance & repairs');
+      final notifyController = TextEditingController(
+        text: 'Floor "$floorName" is closed for maintenance until further notice. Any active bookings on this floor have been automatically released.',
+      );
+      bool shouldNotify = true;
+
+      bool? confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => StatefulBuilder(
+          builder: (context, setDlgState) {
+            return AlertDialog(
+              backgroundColor: EasySitColors.surface,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: const [
+                  Icon(Icons.build_circle_rounded, color: EasySitColors.warningFg),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Close Floor for Maintenance',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: EasySitColors.mainText,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Close "$floorName" for maintenance or facility work.',
+                      style: const TextStyle(fontSize: 13, color: EasySitColors.secondaryText),
+                    ),
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: EasySitColors.warningBg,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: EasySitColors.warningBorder),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Icon(Icons.warning_amber_rounded, color: EasySitColors.warningFg, size: 20),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'All active and pending seat bookings on this floor will be automatically released immediately. Students cannot book seats here until reopened.',
+                              style: TextStyle(fontSize: 12, color: EasySitColors.warningFg, height: 1.3),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: reasonController,
+                      decoration: _buildEasySitInputDecoration(
+                        labelText: 'Reason for Closure',
+                        hintText: 'e.g. Renovation, electrical repairs, painting',
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: shouldNotify,
+                          activeColor: EasySitColors.primary,
+                          onChanged: (val) {
+                            setDlgState(() => shouldNotify = val ?? true);
+                          },
+                        ),
+                        const Expanded(
+                          child: Text(
+                            'Send notification to all students',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: EasySitColors.mainText),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (shouldNotify) ...[
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: notifyController,
+                        maxLines: 3,
+                        decoration: _buildEasySitInputDecoration(
+                          labelText: 'Notification Message',
+                          hintText: 'Message to broadcast to students...',
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel', style: TextStyle(color: EasySitColors.secondaryText)),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: EasySitColors.warningFg,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text('Close Floor & Release Seats'),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+
+      if (confirm != true) return;
+
+      setState(() => _isLoading = true);
+      try {
+        final reason = reasonController.text.trim().isEmpty ? 'Maintenance in progress' : reasonController.text.trim();
+
+        // 1. Update floor doc
+        await _firestore.collection('floors').doc(floorId).update({
+          'isBlocked': true,
+          'status': 'maintenance',
+          'blockReason': reason,
+          'blockedAt': FieldValue.serverTimestamp(),
+        });
+
+        // 2. Query all rooms and seats on this floor
+        int releasedCount = 0;
+        final roomsSnap = await _firestore.collection('rooms').where('floorId', isEqualTo: floorId).get();
+
+        for (var roomDoc in roomsSnap.docs) {
+          final seatsSnap = await _firestore.collection('seats').where('roomId', isEqualTo: roomDoc.id).get();
+
+          WriteBatch batch = _firestore.batch();
+          int batchCount = 0;
+
+          for (var seatDoc in seatsSnap.docs) {
+            final sData = seatDoc.data();
+            final status = sData['status'] ?? 'available';
+            if (status == 'booked' || status == 'pending' || sData['bookedBy'] != null || sData['pendingBy'] != null) {
+              releasedCount++;
+            }
+
+            batch.update(seatDoc.reference, {
+              'status': 'unavailable',
+              'isFloorBlocked': true,
+              'floorId': floorId,
+              'blockedReason': reason,
+              'bookedBy': FieldValue.delete(),
+              'bookedAt': FieldValue.delete(),
+              'pendingBy': FieldValue.delete(),
+              'pendingAt': FieldValue.delete(),
+            });
+            batchCount++;
+
+            if (batchCount >= 450) {
+              await batch.commit();
+              batch = _firestore.batch();
+              batchCount = 0;
+            }
+          }
+
+          if (batchCount > 0) {
+            await batch.commit();
+          }
+        }
+
+        // 3. Send notification
+        if (shouldNotify && notifyController.text.trim().isNotEmpty) {
+          await _firestore.collection('notifications').add({
+            'title': '⚠️ Floor Closed: $floorName',
+            'message': notifyController.text.trim(),
+            'floorId': floorId,
+            'floorName': floorName,
+            'reason': reason,
+            'timestamp': FieldValue.serverTimestamp(),
+            'userId': 'all',
+          });
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Floor closed. $releasedCount active bookings auto-released.'),
+              backgroundColor: EasySitColors.warningFg,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: EasySitColors.errorFg),
+          );
+        }
+      }
+      setState(() => _isLoading = false);
+    } else {
+      // Reopen floor
+      final notifyController = TextEditingController(
+        text: 'Floor "$floorName" is now reopened! Seats on this floor are once again available for reservation.',
+      );
+      bool shouldNotify = true;
+
+      bool? confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => StatefulBuilder(
+          builder: (context, setDlgState) {
+            return AlertDialog(
+              backgroundColor: EasySitColors.surface,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: const [
+                  Icon(Icons.lock_open_rounded, color: EasySitColors.successFg),
+                  SizedBox(width: 8),
+                  Text(
+                    'Reopen Floor',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: EasySitColors.mainText,
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Reopen "$floorName" for student bookings? Seats on this floor will become available again.',
+                      style: const TextStyle(fontSize: 13, color: EasySitColors.bodyText),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: shouldNotify,
+                          activeColor: EasySitColors.primary,
+                          onChanged: (val) {
+                            setDlgState(() => shouldNotify = val ?? true);
+                          },
+                        ),
+                        const Expanded(
+                          child: Text(
+                            'Notify students that floor is reopened',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: EasySitColors.mainText),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (shouldNotify) ...[
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: notifyController,
+                        maxLines: 3,
+                        decoration: _buildEasySitInputDecoration(
+                          labelText: 'Notification Message',
+                          hintText: 'Message to broadcast to students...',
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel', style: TextStyle(color: EasySitColors.secondaryText)),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: EasySitColors.successFg,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text('Reopen Floor'),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+
+      if (confirm != true) return;
+
+      setState(() => _isLoading = true);
+      try {
+        // 1. Update floor doc
+        await _firestore.collection('floors').doc(floorId).update({
+          'isBlocked': false,
+          'status': 'active',
+          'blockReason': FieldValue.delete(),
+          'unblockedAt': FieldValue.serverTimestamp(),
+        });
+
+        // 2. Reopen seats under this floor
+        final roomsSnap = await _firestore.collection('rooms').where('floorId', isEqualTo: floorId).get();
+
+        for (var roomDoc in roomsSnap.docs) {
+          final seatsSnap = await _firestore.collection('seats').where('roomId', isEqualTo: roomDoc.id).get();
+
+          WriteBatch batch = _firestore.batch();
+          int batchCount = 0;
+
+          for (var seatDoc in seatsSnap.docs) {
+            final sData = seatDoc.data();
+            if (sData['isFloorBlocked'] == true || sData['status'] == 'unavailable') {
+              batch.update(seatDoc.reference, {
+                'status': 'available',
+                'isFloorBlocked': FieldValue.delete(),
+                'blockedReason': FieldValue.delete(),
+              });
+              batchCount++;
+
+              if (batchCount >= 450) {
+                await batch.commit();
+                batch = _firestore.batch();
+                batchCount = 0;
+              }
+            }
+          }
+
+          if (batchCount > 0) {
+            await batch.commit();
+          }
+        }
+
+        // 3. Send notification
+        if (shouldNotify && notifyController.text.trim().isNotEmpty) {
+          await _firestore.collection('notifications').add({
+            'title': '✅ Floor Reopened: $floorName',
+            'message': notifyController.text.trim(),
+            'floorId': floorId,
+            'floorName': floorName,
+            'timestamp': FieldValue.serverTimestamp(),
+            'userId': 'all',
+          });
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Floor "$floorName" reopened! Seats are now available.'),
+              backgroundColor: EasySitColors.successFg,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: EasySitColors.errorFg),
+          );
+        }
+      }
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _sendFloorNoticeDialog(String floorId, String floorName) async {
+    final titleController = TextEditingController(text: 'Announcement: $floorName');
+    final messageController = TextEditingController();
+
+    bool? send = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: EasySitColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.campaign_rounded, color: EasySitColors.pendingAccent),
+            SizedBox(width: 8),
+            Text(
+              'Send Floor Notice',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: EasySitColors.mainText,
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Broadcast an announcement about $floorName to all students.',
+                style: const TextStyle(fontSize: 13, color: EasySitColors.secondaryText),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: titleController,
+                decoration: _buildEasySitInputDecoration(
+                  labelText: 'Notice Title',
+                  hintText: 'e.g. Ground Floor Notice',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: messageController,
+                maxLines: 3,
+                decoration: _buildEasySitInputDecoration(
+                  labelText: 'Notice Message',
+                  hintText: 'Enter notice details for students...',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: EasySitColors.secondaryText)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (messageController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter a message')),
+                );
+                return;
+              }
+              Navigator.pop(ctx, true);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: EasySitColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Send Broadcast'),
+          ),
+        ],
+      ),
+    );
+
+    if (send != true) return;
+
+    try {
+      await _firestore.collection('notifications').add({
+        'title': titleController.text.trim(),
+        'message': messageController.text.trim(),
+        'floorId': floorId,
+        'floorName': floorName,
+        'timestamp': FieldValue.serverTimestamp(),
+        'userId': 'all',
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Floor notice broadcasted to all students!'),
+            backgroundColor: EasySitColors.successFg,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: EasySitColors.errorFg),
+        );
+      }
+    }
+  }
+
+  void _showFloorActionSheet(String floorId, String floorName, bool isBlocked, String? reason) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: EasySitColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      floorName,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: EasySitColors.mainText,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isBlocked ? EasySitColors.warningBg : EasySitColors.successBg,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: isBlocked ? EasySitColors.warningBorder : EasySitColors.successBorder),
+                    ),
+                    child: Text(
+                      isBlocked ? 'Closed / Maintenance' : 'Active',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: isBlocked ? EasySitColors.warningFg : EasySitColors.successFg,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (isBlocked && (reason ?? '').isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'Reason: $reason',
+                  style: const TextStyle(fontSize: 13, color: EasySitColors.warningFg, fontWeight: FontWeight.w500),
+                ),
+              ],
+              const SizedBox(height: 16),
+              const Divider(color: EasySitColors.divider),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isBlocked ? EasySitColors.successBg : EasySitColors.warningBg,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    isBlocked ? Icons.lock_open_rounded : Icons.block_rounded,
+                    color: isBlocked ? EasySitColors.successFg : EasySitColors.warningFg,
+                    size: 20,
+                  ),
+                ),
+                title: Text(
+                  isBlocked ? 'Reopen Floor' : 'Close Floor for Maintenance',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: isBlocked ? EasySitColors.successFg : EasySitColors.warningFg,
+                  ),
+                ),
+                subtitle: Text(
+                  isBlocked
+                      ? 'Resume student seat reservations on this floor'
+                      : 'Auto-release active seats and pause reservations',
+                  style: const TextStyle(fontSize: 12, color: EasySitColors.secondaryText),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _toggleFloorMaintenance(floorId, floorName, isBlocked, reason);
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: EasySitColors.pendingBg,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.campaign_rounded,
+                    color: EasySitColors.pendingAccent,
+                    size: 20,
+                  ),
+                ),
+                title: const Text(
+                  'Send Floor Announcement',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: EasySitColors.mainText,
+                  ),
+                ),
+                subtitle: const Text(
+                  'Broadcast notice about this floor to all students',
+                  style: TextStyle(fontSize: 12, color: EasySitColors.secondaryText),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _sendFloorNoticeDialog(floorId, floorName);
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: EasySitColors.errorBg,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: EasySitColors.errorFg,
+                    size: 20,
+                  ),
+                ),
+                title: const Text(
+                  'Delete Floor',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: EasySitColors.errorFg,
+                  ),
+                ),
+                subtitle: const Text(
+                  'Permanently delete this floor and all its rooms and seats',
+                  style: TextStyle(fontSize: 12, color: EasySitColors.secondaryText),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _deleteFloor(floorId);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -2692,61 +3322,145 @@ class _ManageFloorsScreenState extends State<ManageFloorsScreen> {
                 itemBuilder: (context, index) {
                   var doc = snapshot.data!.docs[index];
                   var data = doc.data() as Map<String, dynamic>;
+                  final String floorName = data['name'] ?? 'Unnamed';
+                  final bool isBlocked = data['isBlocked'] ?? false;
+                  final String? blockReason = data['blockReason'] as String?;
+
                   return Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    margin: const EdgeInsets.symmetric(vertical: 6),
                     decoration: BoxDecoration(
                       color: EasySitColors.surface,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: EasySitColors.divider),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isBlocked ? EasySitColors.warningBorder : EasySitColors.divider,
+                        width: isBlocked ? 1.5 : 1.0,
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: EasySitColors.cardShadowColor,
+                          blurRadius: 6,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    child: ListTile(
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: EasySitColors.primaryTint,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.vertical_align_top,
-                          color: EasySitColors.primary,
-                        ),
-                      ),
-                      title: Text(
-                        data['name'] ?? 'Unnamed',
-                        style: const TextStyle(
-                          color: EasySitColors.mainText,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      subtitle: FutureBuilder<DocumentSnapshot>(
-                        future:
-                            _firestore
-                                .collection('buildings')
-                                .doc(data['buildingId'])
-                                .get(),
-                        builder: (context, buildingSnapshot) {
-                          if (!buildingSnapshot.hasData) {
-                            return const Text(
-                              'Loading...',
-                              style: TextStyle(color: EasySitColors.secondaryText, fontSize: 12),
-                            );
-                          }
-                          var buildingData =
-                              buildingSnapshot.data?.data()
-                                  as Map<String, dynamic>?;
-                          return Text(
-                            'Building: ${buildingData?['name'] ?? 'Unknown'}',
-                            style: const TextStyle(
-                              color: EasySitColors.secondaryText,
-                              fontSize: 12,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => _showFloorActionSheet(doc.id, floorName, isBlocked, blockReason),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: isBlocked ? EasySitColors.warningBg : EasySitColors.primaryTint,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                isBlocked ? Icons.lock_clock_rounded : Icons.vertical_align_top,
+                                color: isBlocked ? EasySitColors.warningFg : EasySitColors.primary,
+                                size: 22,
+                              ),
                             ),
-                          );
-                        },
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline, color: EasySitColors.errorFg),
-                        onPressed: () => _deleteFloor(doc.id),
-                        tooltip: 'Delete Floor',
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          floorName,
+                                          style: const TextStyle(
+                                            color: EasySitColors.mainText,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: isBlocked ? EasySitColors.warningBg : EasySitColors.successBg,
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(
+                                            color: isBlocked ? EasySitColors.warningBorder : EasySitColors.successBorder,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          isBlocked ? 'Maintenance' : 'Active',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: isBlocked ? EasySitColors.warningFg : EasySitColors.successFg,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 3),
+                                  FutureBuilder<DocumentSnapshot>(
+                                    future: _firestore.collection('buildings').doc(data['buildingId']).get(),
+                                    builder: (context, buildingSnapshot) {
+                                      final bData = buildingSnapshot.data?.data() as Map<String, dynamic>?;
+                                      final bName = bData?['name'] ?? 'Building';
+                                      if (isBlocked) {
+                                        return Text(
+                                          'Closed: ${blockReason ?? 'Maintenance in progress'} • $bName',
+                                          style: const TextStyle(
+                                            color: EasySitColors.warningFg,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        );
+                                      }
+                                      return Text(
+                                        'Building: $bName • Available',
+                                        style: const TextStyle(
+                                          color: EasySitColors.secondaryText,
+                                          fontSize: 12,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: Icon(
+                                    isBlocked ? Icons.lock_open_rounded : Icons.block_rounded,
+                                    color: isBlocked ? EasySitColors.successFg : EasySitColors.warningFg,
+                                    size: 20,
+                                  ),
+                                  tooltip: isBlocked ? 'Reopen Floor' : 'Close for Maintenance',
+                                  onPressed: () => _toggleFloorMaintenance(doc.id, floorName, isBlocked, blockReason),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.campaign_outlined, color: EasySitColors.pendingAccent, size: 20),
+                                  tooltip: 'Send Notice',
+                                  onPressed: () => _sendFloorNoticeDialog(doc.id, floorName),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: EasySitColors.errorFg, size: 20),
+                                  onPressed: () => _deleteFloor(doc.id),
+                                  tooltip: 'Delete Floor',
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -2891,6 +3605,628 @@ class _ManageRoomsScreenState extends State<ManageRoomsScreen> {
       }
     }
     setState(() => _isLoading = false);
+  }
+
+  Future<void> _toggleRoomMaintenance(String roomId, String roomName, bool isBlocked, String? currentReason) async {
+    if (!isBlocked) {
+      // Close room for maintenance
+      final reasonController = TextEditingController(text: currentReason ?? 'Facility maintenance & servicing');
+      final notifyController = TextEditingController(
+        text: 'Room "$roomName" is closed for maintenance until further notice. Any active bookings in this room have been automatically released.',
+      );
+      bool shouldNotify = true;
+
+      bool? confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => StatefulBuilder(
+          builder: (context, setDlgState) {
+            return AlertDialog(
+              backgroundColor: EasySitColors.surface,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: const [
+                  Icon(Icons.build_circle_rounded, color: EasySitColors.warningFg),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Close Room for Maintenance',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: EasySitColors.mainText,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Close "$roomName" for maintenance or facility work.',
+                      style: const TextStyle(fontSize: 13, color: EasySitColors.secondaryText),
+                    ),
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: EasySitColors.warningBg,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: EasySitColors.warningBorder),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Icon(Icons.warning_amber_rounded, color: EasySitColors.warningFg, size: 20),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'All active and pending seat bookings in this room will be automatically released immediately. Students cannot book seats here until reopened.',
+                              style: TextStyle(fontSize: 12, color: EasySitColors.warningFg, height: 1.3),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: reasonController,
+                      decoration: _buildEasySitInputDecoration(
+                        labelText: 'Reason for Closure',
+                        hintText: 'e.g. Air conditioning repair, cleaning, exams',
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: shouldNotify,
+                          activeColor: EasySitColors.primary,
+                          onChanged: (val) {
+                            setDlgState(() => shouldNotify = val ?? true);
+                          },
+                        ),
+                        const Expanded(
+                          child: Text(
+                            'Send notification to all students',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: EasySitColors.mainText),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (shouldNotify) ...[
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: notifyController,
+                        maxLines: 3,
+                        decoration: _buildEasySitInputDecoration(
+                          labelText: 'Notification Message',
+                          hintText: 'Message to broadcast to students...',
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel', style: TextStyle(color: EasySitColors.secondaryText)),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: EasySitColors.warningFg,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text('Close Room & Release Seats'),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+
+      if (confirm != true) return;
+
+      setState(() => _isLoading = true);
+      try {
+        final reason = reasonController.text.trim().isEmpty ? 'Maintenance in progress' : reasonController.text.trim();
+
+        // 1. Update room doc
+        await _firestore.collection('rooms').doc(roomId).update({
+          'isBlocked': true,
+          'status': 'maintenance',
+          'blockReason': reason,
+          'blockedAt': FieldValue.serverTimestamp(),
+        });
+
+        // 2. Query all seats in this room to auto-release
+        int releasedCount = 0;
+        final seatsSnap = await _firestore.collection('seats').where('roomId', isEqualTo: roomId).get();
+
+        WriteBatch batch = _firestore.batch();
+        int batchCount = 0;
+
+        for (var seatDoc in seatsSnap.docs) {
+          final sData = seatDoc.data();
+          final status = sData['status'] ?? 'available';
+          if (status == 'booked' || status == 'pending' || sData['bookedBy'] != null || sData['pendingBy'] != null) {
+            releasedCount++;
+          }
+
+          batch.update(seatDoc.reference, {
+            'status': 'unavailable',
+            'isRoomBlocked': true,
+            'roomId': roomId,
+            'blockedReason': reason,
+            'bookedBy': FieldValue.delete(),
+            'bookedAt': FieldValue.delete(),
+            'pendingBy': FieldValue.delete(),
+            'pendingAt': FieldValue.delete(),
+          });
+          batchCount++;
+
+          if (batchCount >= 450) {
+            await batch.commit();
+            batch = _firestore.batch();
+            batchCount = 0;
+          }
+        }
+
+        if (batchCount > 0) {
+          await batch.commit();
+        }
+
+        // 3. Send notification
+        if (shouldNotify && notifyController.text.trim().isNotEmpty) {
+          await _firestore.collection('notifications').add({
+            'title': '⚠️ Room Closed: $roomName',
+            'message': notifyController.text.trim(),
+            'roomId': roomId,
+            'roomName': roomName,
+            'reason': reason,
+            'timestamp': FieldValue.serverTimestamp(),
+            'userId': 'all',
+          });
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Room closed. $releasedCount active bookings auto-released.'),
+              backgroundColor: EasySitColors.warningFg,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: EasySitColors.errorFg),
+          );
+        }
+      }
+      setState(() => _isLoading = false);
+    } else {
+      // Reopen room
+      final notifyController = TextEditingController(
+        text: 'Room "$roomName" is now reopened! Seats are once again available for reservation.',
+      );
+      bool shouldNotify = true;
+
+      bool? confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => StatefulBuilder(
+          builder: (context, setDlgState) {
+            return AlertDialog(
+              backgroundColor: EasySitColors.surface,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: const [
+                  Icon(Icons.lock_open_rounded, color: EasySitColors.successFg),
+                  SizedBox(width: 8),
+                  Text(
+                    'Reopen Room',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: EasySitColors.mainText,
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Reopen "$roomName" for student bookings? All seats in this room will become available again.',
+                      style: const TextStyle(fontSize: 13, color: EasySitColors.bodyText),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: shouldNotify,
+                          activeColor: EasySitColors.primary,
+                          onChanged: (val) {
+                            setDlgState(() => shouldNotify = val ?? true);
+                          },
+                        ),
+                        const Expanded(
+                          child: Text(
+                            'Notify students that room is reopened',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: EasySitColors.mainText),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (shouldNotify) ...[
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: notifyController,
+                        maxLines: 3,
+                        decoration: _buildEasySitInputDecoration(
+                          labelText: 'Notification Message',
+                          hintText: 'Message to broadcast to students...',
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel', style: TextStyle(color: EasySitColors.secondaryText)),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: EasySitColors.successFg,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text('Reopen Room'),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+
+      if (confirm != true) return;
+
+      setState(() => _isLoading = true);
+      try {
+        // 1. Update room doc
+        await _firestore.collection('rooms').doc(roomId).update({
+          'isBlocked': false,
+          'status': 'active',
+          'blockReason': FieldValue.delete(),
+          'unblockedAt': FieldValue.serverTimestamp(),
+        });
+
+        // 2. Reopen seats in this room
+        final seatsSnap = await _firestore.collection('seats').where('roomId', isEqualTo: roomId).get();
+
+        WriteBatch batch = _firestore.batch();
+        int batchCount = 0;
+
+        for (var seatDoc in seatsSnap.docs) {
+          final sData = seatDoc.data();
+          if (sData['isRoomBlocked'] == true || sData['status'] == 'unavailable') {
+            batch.update(seatDoc.reference, {
+              'status': 'available',
+              'isRoomBlocked': FieldValue.delete(),
+              'blockedReason': FieldValue.delete(),
+            });
+            batchCount++;
+
+            if (batchCount >= 450) {
+              await batch.commit();
+              batch = _firestore.batch();
+              batchCount = 0;
+            }
+          }
+        }
+
+        if (batchCount > 0) {
+          await batch.commit();
+        }
+
+        // 3. Send notification
+        if (shouldNotify && notifyController.text.trim().isNotEmpty) {
+          await _firestore.collection('notifications').add({
+            'title': '✅ Room Reopened: $roomName',
+            'message': notifyController.text.trim(),
+            'roomId': roomId,
+            'roomName': roomName,
+            'timestamp': FieldValue.serverTimestamp(),
+            'userId': 'all',
+          });
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Room "$roomName" reopened! Seats are now available.'),
+              backgroundColor: EasySitColors.successFg,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: EasySitColors.errorFg),
+          );
+        }
+      }
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _sendRoomNoticeDialog(String roomId, String roomName) async {
+    final titleController = TextEditingController(text: 'Announcement: $roomName');
+    final messageController = TextEditingController();
+
+    bool? send = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: EasySitColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.campaign_rounded, color: EasySitColors.pendingAccent),
+            SizedBox(width: 8),
+            Text(
+              'Send Room Notice',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: EasySitColors.mainText,
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Broadcast an announcement about $roomName to all students.',
+                style: const TextStyle(fontSize: 13, color: EasySitColors.secondaryText),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: titleController,
+                decoration: _buildEasySitInputDecoration(
+                  labelText: 'Notice Title',
+                  hintText: 'e.g. Room 101 Notice',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: messageController,
+                maxLines: 3,
+                decoration: _buildEasySitInputDecoration(
+                  labelText: 'Notice Message',
+                  hintText: 'Enter notice details for students...',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: EasySitColors.secondaryText)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (messageController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter a message')),
+                );
+                return;
+              }
+              Navigator.pop(ctx, true);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: EasySitColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Send Broadcast'),
+          ),
+        ],
+      ),
+    );
+
+    if (send != true) return;
+
+    try {
+      await _firestore.collection('notifications').add({
+        'title': titleController.text.trim(),
+        'message': messageController.text.trim(),
+        'roomId': roomId,
+        'roomName': roomName,
+        'timestamp': FieldValue.serverTimestamp(),
+        'userId': 'all',
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Room notice broadcasted to all students!'),
+            backgroundColor: EasySitColors.successFg,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: EasySitColors.errorFg),
+        );
+      }
+    }
+  }
+
+  void _showRoomActionSheet(String roomId, String roomName, bool isBlocked, String? reason) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: EasySitColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      roomName,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: EasySitColors.mainText,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isBlocked ? EasySitColors.warningBg : EasySitColors.successBg,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: isBlocked ? EasySitColors.warningBorder : EasySitColors.successBorder),
+                    ),
+                    child: Text(
+                      isBlocked ? 'Closed / Maintenance' : 'Active',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: isBlocked ? EasySitColors.warningFg : EasySitColors.successFg,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (isBlocked && (reason ?? '').isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'Reason: $reason',
+                  style: const TextStyle(fontSize: 13, color: EasySitColors.warningFg, fontWeight: FontWeight.w500),
+                ),
+              ],
+              const SizedBox(height: 16),
+              const Divider(color: EasySitColors.divider),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isBlocked ? EasySitColors.successBg : EasySitColors.warningBg,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    isBlocked ? Icons.lock_open_rounded : Icons.block_rounded,
+                    color: isBlocked ? EasySitColors.successFg : EasySitColors.warningFg,
+                    size: 20,
+                  ),
+                ),
+                title: Text(
+                  isBlocked ? 'Reopen Room' : 'Close Room for Maintenance',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: isBlocked ? EasySitColors.successFg : EasySitColors.warningFg,
+                  ),
+                ),
+                subtitle: Text(
+                  isBlocked
+                      ? 'Resume student seat reservations in this room'
+                      : 'Auto-release active seats and pause reservations',
+                  style: const TextStyle(fontSize: 12, color: EasySitColors.secondaryText),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _toggleRoomMaintenance(roomId, roomName, isBlocked, reason);
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: EasySitColors.pendingBg,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.campaign_rounded,
+                    color: EasySitColors.pendingAccent,
+                    size: 20,
+                  ),
+                ),
+                title: const Text(
+                  'Send Room Announcement',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: EasySitColors.mainText,
+                  ),
+                ),
+                subtitle: const Text(
+                  'Broadcast notice about this room to all students',
+                  style: TextStyle(fontSize: 12, color: EasySitColors.secondaryText),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _sendRoomNoticeDialog(roomId, roomName);
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: EasySitColors.errorBg,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: EasySitColors.errorFg,
+                    size: 20,
+                  ),
+                ),
+                title: const Text(
+                  'Delete Room',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: EasySitColors.errorFg,
+                  ),
+                ),
+                subtitle: const Text(
+                  'Permanently delete this room and all its seats',
+                  style: TextStyle(fontSize: 12, color: EasySitColors.secondaryText),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _deleteRoom(roomId);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -3111,39 +4447,136 @@ class _ManageRoomsScreenState extends State<ManageRoomsScreen> {
                       itemBuilder: (context, index) {
                         var doc = snapshot.data!.docs[index];
                         var data = doc.data() as Map<String, dynamic>;
+                        final String roomName = data['name'] ?? 'Unnamed';
+                        final bool isBlocked = data['isBlocked'] ?? false;
+                        final String? blockReason = data['blockReason'] as String?;
+
                         return Container(
-                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          margin: const EdgeInsets.symmetric(vertical: 6),
                           decoration: BoxDecoration(
                             color: EasySitColors.surface,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: EasySitColors.divider),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isBlocked ? EasySitColors.warningBorder : EasySitColors.divider,
+                              width: isBlocked ? 1.5 : 1.0,
+                            ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: EasySitColors.cardShadowColor,
+                                blurRadius: 6,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
                           ),
-                          child: ListTile(
-                            leading: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: EasySitColors.primaryTint,
-                                borderRadius: BorderRadius.circular(8),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () => _showRoomActionSheet(doc.id, roomName, isBlocked, blockReason),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: isBlocked ? EasySitColors.warningBg : EasySitColors.primaryTint,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Icon(
+                                      isBlocked ? Icons.lock_clock_rounded : Icons.door_front_door,
+                                      color: isBlocked ? EasySitColors.warningFg : EasySitColors.primary,
+                                      size: 22,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Flexible(
+                                              child: Text(
+                                                roomName,
+                                                style: const TextStyle(
+                                                  color: EasySitColors.mainText,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 15,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: isBlocked ? EasySitColors.warningBg : EasySitColors.successBg,
+                                                borderRadius: BorderRadius.circular(10),
+                                                border: Border.all(
+                                                  color: isBlocked ? EasySitColors.warningBorder : EasySitColors.successBorder,
+                                                ),
+                                              ),
+                                              child: Text(
+                                                isBlocked ? 'Maintenance' : 'Active',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: isBlocked ? EasySitColors.warningFg : EasySitColors.successFg,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 3),
+                                        if (isBlocked)
+                                          Text(
+                                            'Closed: ${blockReason ?? 'Maintenance in progress'}',
+                                            style: const TextStyle(
+                                              color: EasySitColors.warningFg,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          )
+                                        else
+                                          const Text(
+                                            'Available for reservations',
+                                            style: TextStyle(
+                                              color: EasySitColors.secondaryText,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: Icon(
+                                          isBlocked ? Icons.lock_open_rounded : Icons.block_rounded,
+                                          color: isBlocked ? EasySitColors.successFg : EasySitColors.warningFg,
+                                          size: 20,
+                                        ),
+                                        tooltip: isBlocked ? 'Reopen Room' : 'Close for Maintenance',
+                                        onPressed: () => _toggleRoomMaintenance(doc.id, roomName, isBlocked, blockReason),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.campaign_outlined, color: EasySitColors.pendingAccent, size: 20),
+                                        tooltip: 'Send Notice',
+                                        onPressed: () => _sendRoomNoticeDialog(doc.id, roomName),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline, color: EasySitColors.errorFg, size: 20),
+                                        onPressed: () => _deleteRoom(doc.id),
+                                        tooltip: 'Delete Room',
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
-                              child: const Icon(
-                                Icons.door_front_door,
-                                color: EasySitColors.primary,
-                              ),
-                            ),
-                            title: Text(
-                              data['name'] ?? 'Unnamed',
-                              style: const TextStyle(
-                                color: EasySitColors.mainText,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            trailing: IconButton(
-                              icon: const Icon(
-                                Icons.delete_outline,
-                                color: EasySitColors.errorFg,
-                              ),
-                              onPressed: () => _deleteRoom(doc.id),
-                              tooltip: 'Delete Room',
                             ),
                           ),
                         );
