@@ -204,4 +204,14 @@ class EasySitColors {
     end: Alignment.bottomRight,
     colors: [Color(0xFF29234F), Color(0xFF386CD1)],
   );
+
+  /// Student screens top header gradient (Light blue to white)
+  static const LinearGradient studentHeaderGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      Color(0xFFD6E4FF),
+      Colors.white,
+    ],
+  );
 }

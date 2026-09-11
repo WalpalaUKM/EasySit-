@@ -698,74 +698,110 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scaffold = Scaffold(
-      backgroundColor: EasySitColors.appBackground,
-      appBar: AppBar(
-        toolbarHeight: 72,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        surfaceTintColor: Colors.transparent,
-        automaticallyImplyLeading: false,
-        backgroundColor: EasySitColors.appBackground,
-        systemOverlayStyle: const SystemUiOverlayStyle(
-          statusBarColor: EasySitColors.appBackground,
-          statusBarIconBrightness: Brightness.dark,
-          statusBarBrightness: Brightness.light,
-        ),
-        titleSpacing: 20,
-        title: const Text(
-          'Profile',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: EasySitColors.textPrimary,
-          ),
-        ),
-        actions: const [
-          NotificationBellButton(),
-          SizedBox(width: 20),
-        ],
+    final scaffold = Container(
+      decoration: const BoxDecoration(
+        gradient: EasySitColors.studentHeaderGradient,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 20,
-          vertical: 12,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildUserInfoCard(),
-            if (_activeBooking != null &&
-                (_bookingStatus == 'booked' ||
-                    _bookingStatus == 'pending')) ...[
-              const SizedBox(height: 16),
-              _buildCurrentSession(),
-            ],
-            const SizedBox(height: 20),
-            const Text(
-              'Your Statistics',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: EasySitColors.textPrimary,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          toolbarHeight: 84,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
+          automaticallyImplyLeading: false,
+          backgroundColor: Colors.transparent,
+          systemOverlayStyle: const SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark,
+            statusBarBrightness: Brightness.light,
+          ),
+          titleSpacing: 20,
+          title: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'Profile',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: EasySitColors.textPrimary,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            _buildStats(),
-            const SizedBox(height: 18),
-            _buildSettingsCard(),
-            const SizedBox(height: 18),
-            _buildLogoutButton(),
-            const SizedBox(
-              height: 100,
-            ), // Space for floating bottom nav
+              SizedBox(height: 4),
+              Text(
+                'Manage your student account',
+                style: TextStyle(
+                  color: EasySitColors.secondaryText,
+                  fontSize: 13,
+                  fontWeight: FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+          actions: const [
+            NotificationBellButton(),
+            SizedBox(width: 20),
           ],
         ),
+        body: Container(
+          width: double.infinity,
+          decoration: const BoxDecoration(
+            color: EasySitColors.appBackground,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(28),
+              topRight: Radius.circular(28),
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(28),
+              topRight: Radius.circular(28),
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 16,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildUserInfoCard(),
+                  if (_activeBooking != null &&
+                      (_bookingStatus == 'booked' ||
+                          _bookingStatus == 'pending')) ...[
+                    const SizedBox(height: 16),
+                    _buildCurrentSession(),
+                  ],
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Your Statistics',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: EasySitColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildStats(),
+                  const SizedBox(height: 18),
+                  _buildSettingsCard(),
+                  const SizedBox(height: 18),
+                  _buildLogoutButton(),
+                  const SizedBox(
+                    height: 100,
+                  ), // Space for floating bottom nav
+                ],
+              ),
+            ),
+          ),
+        ),
+        bottomNavigationBar:
+            widget.isTab
+                ? null
+                : AppBottomNav(currentIndex: 3, onTabSelected: _onNavTab),
       ),
-      bottomNavigationBar:
-          widget.isTab
-              ? null
-              : AppBottomNav(currentIndex: 3, onTabSelected: _onNavTab),
     );
 
     if (widget.isTab) {
