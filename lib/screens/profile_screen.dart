@@ -20,6 +20,8 @@ class ProfileScreen extends StatefulWidget {
 
   static Map<String, dynamic>? cachedBooking;
   static String cachedStatus = '';
+  static final ValueNotifier<String> userNameNotifier =
+      ValueNotifier<String>('');
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -120,8 +122,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _applyUserData(Map<String, dynamic> data) {
+    final name = (data['fullName'] ?? '').toString().trim();
+    if (name.isNotEmpty && ProfileScreen.userNameNotifier.value != name) {
+      ProfileScreen.userNameNotifier.value = name;
+    }
     setState(() {
-      _fullName = data['fullName'] ?? '';
+      _fullName = name;
       _email = data['email'] ?? _user?.email ?? '';
       _phone = data['phone'] ?? '';
       _userType = data['userType'] ?? 'Student';
@@ -296,15 +302,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _saveProfile() async {
     if (_user == null) return;
+    final newName = _nameCtrl.text.trim();
+    if (newName.isNotEmpty) {
+      ProfileScreen.userNameNotifier.value = newName;
+    }
     setState(() => _isSaving = true);
     try {
       await _firestore.collection('users').doc(_user.uid).update({
-        'fullName': _nameCtrl.text.trim(),
+        'fullName': newName,
         'email': _emailCtrl.text.trim(),
         'phone': _phoneCtrl.text.trim(),
       });
       setState(() {
-        _fullName = _nameCtrl.text.trim();
+        _fullName = newName;
         _email = _emailCtrl.text.trim();
         _phone = _phoneCtrl.text.trim();
       });
