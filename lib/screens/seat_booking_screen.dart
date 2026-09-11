@@ -394,6 +394,24 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
     if (confirm != true) return;
 
     try {
+      final seatSnap = await _firestore.collection('seats').doc(seatId).get();
+      if (seatSnap.exists) {
+        final sData = seatSnap.data() as Map<String, dynamic>;
+        if ((sData['status'] ?? '') == 'unavailable' || sData['isBuildingBlocked'] == true) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Cannot book seat. Building is closed for ${sData['blockedReason'] ?? 'maintenance'}.',
+                ),
+                backgroundColor: EasySitColors.errorFg,
+              ),
+            );
+          }
+          return;
+        }
+      }
+
       await _firestore.collection('seats').doc(seatId).update({
         'status': 'pending',
         'pendingBy': user.uid,
@@ -749,16 +767,21 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              _legendItem(EasySitColors.seatAvailableFill, EasySitColors.seatAvailableText, 'Available'),
-                              const SizedBox(width: 12),
-                              _legendItem(EasySitColors.seatPendingFill, EasySitColors.seatPendingText, 'Pending'),
-                              const SizedBox(width: 12),
-                              _legendItem(EasySitColors.seatOccupiedFill, EasySitColors.seatOccupiedText, 'Booked'),
-                              const SizedBox(width: 12),
-                              _legendItem(EasySitColors.seatSelectedFill, Colors.white, 'My Seat', isFilled: true),
-                            ],
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                _legendItem(EasySitColors.seatAvailableFill, EasySitColors.seatAvailableText, 'Available'),
+                                const SizedBox(width: 12),
+                                _legendItem(EasySitColors.seatPendingFill, EasySitColors.seatPendingText, 'Pending'),
+                                const SizedBox(width: 12),
+                                _legendItem(EasySitColors.seatOccupiedFill, EasySitColors.seatOccupiedText, 'Booked'),
+                                const SizedBox(width: 12),
+                                _legendItem(EasySitColors.seatSelectedFill, Colors.white, 'My Seat', isFilled: true),
+                                const SizedBox(width: 12),
+                                _legendItem(EasySitColors.seatUnavailableFill, EasySitColors.seatUnavailableText, 'Closed'),
+                              ],
+                            ),
                           ),
                           const SizedBox(height: 16),
                           Expanded(
@@ -795,6 +818,11 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                                   });
                                 }
 
+                                bool isBuildingClosed = effectiveStatus == 'unavailable' || seatData['isBuildingBlocked'] == true;
+                                if (isBuildingClosed) {
+                                  effectiveStatus = 'unavailable';
+                                }
+
                                 Color bgColor;
                                 Color borderColor;
                                 Color iconColor;
@@ -802,7 +830,25 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                                 bool isMine = false;
                                 VoidCallback? onTap;
 
-                                if (effectiveStatus == 'available') {
+                                if (effectiveStatus == 'unavailable') {
+                                  bgColor = EasySitColors.seatUnavailableFill;
+                                  borderColor = EasySitColors.divider;
+                                  iconColor = EasySitColors.seatUnavailableText;
+                                  textColor = EasySitColors.seatUnavailableText;
+                                  String blockedReason = seatData['blockedReason'] ?? 'Facility maintenance';
+                                  onTap = () {
+                                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Seat $seatNumber is unavailable. Reason: $blockedReason',
+                                        ),
+                                        backgroundColor: EasySitColors.error,
+                                        duration: const Duration(seconds: 3),
+                                      ),
+                                    );
+                                  };
+                                } else if (effectiveStatus == 'available') {
                                   bgColor = EasySitColors.seatAvailableFill;
                                   borderColor = EasySitColors.seatAvailableText;
                                   iconColor = EasySitColors.seatAvailableText;
@@ -878,11 +924,13 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                                           MainAxisAlignment.center,
                                       children: [
                                         Icon(
-                                          isMine
-                                              ? (effectiveStatus == 'pending' ? Icons.access_time_rounded : Icons.check_circle_outline)
-                                              : (effectiveStatus == 'pending'
-                                                  ? Icons.access_time_rounded
-                                                  : (effectiveStatus == 'available' ? Icons.event_seat : Icons.lock_outline)),
+                                          effectiveStatus == 'unavailable'
+                                              ? Icons.do_not_disturb_on_outlined
+                                              : (isMine
+                                                  ? (effectiveStatus == 'pending' ? Icons.access_time_rounded : Icons.check_circle_outline)
+                                                  : (effectiveStatus == 'pending'
+                                                      ? Icons.access_time_rounded
+                                                      : (effectiveStatus == 'available' ? Icons.event_seat : Icons.lock_outline))),
                                           size: 24,
                                           color: iconColor,
                                         ),
@@ -915,6 +963,29 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                                                 fontSize: 8,
                                                 fontWeight: FontWeight.w600,
                                                 color: EasySitColors.warningFg,
+                                              ),
+                                            ),
+                                          ),
+                                        if (effectiveStatus == 'unavailable')
+                                          Container(
+                                            margin: const EdgeInsets.only(
+                                              top: 4,
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: EasySitColors.divider,
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                            ),
+                                            child: const Text(
+                                              'Closed',
+                                              style: TextStyle(
+                                                fontSize: 8,
+                                                fontWeight: FontWeight.w600,
+                                                color: EasySitColors.disabledText,
                                               ),
                                             ),
                                           ),

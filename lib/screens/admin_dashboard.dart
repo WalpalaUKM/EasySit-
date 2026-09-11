@@ -89,20 +89,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     'Manage Floors',
     'Manage Rooms',
     'Manage Seats & QR',
-    'Student Behavior',
+    'Student Activity & Access',
     'Send Notification',
     'Admin Profile',
   ];
 
   final List<IconData> _menuIcons = [
-    Icons.home_rounded,
-    Icons.business,
-    Icons.vertical_align_top,
-    Icons.door_front_door,
-    Icons.event_seat,
-    Icons.analytics,
-    Icons.notifications_active,
+    Icons.dashboard_rounded,
+    Icons.apartment_rounded,
+    Icons.layers_rounded,
+    Icons.meeting_room_rounded,
+    Icons.qr_code_2_rounded,
+    Icons.manage_accounts_rounded,
+    Icons.campaign_rounded,
     Icons.person_rounded,
+  ];
+
+  final List<Color> _menuIconColors = [
+    EasySitColors.primary,
+    EasySitColors.computerLabFg,
+    EasySitColors.darkBlue,
+    EasySitColors.purpleAccent,
+    EasySitColors.purpleBlue,
+    EasySitColors.primary,
+    EasySitColors.pendingAccent,
+    EasySitColors.secondaryText,
   ];
 
   @override
@@ -129,7 +140,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         appBar: AppBar(
           leading: _selectedIndex != 0
               ? IconButton(
-                  icon: const Icon(Icons.arrow_back),
+                  icon: const Icon(Icons.arrow_back_rounded),
                   tooltip: 'Back to Dashboard',
                   onPressed: () {
                     setState(() {
@@ -138,130 +149,240 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   },
                 )
               : null,
-          title: const Text(
-            'Admin Dashboard',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 19),
+          title: Text(
+            _selectedIndex == 0 ? 'Admin Dashboard' : _menuTitles[_selectedIndex],
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
           ),
-        backgroundColor: EasySitColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.account_circle),
-            tooltip: 'Admin Profile',
-            onPressed: () {
-              setState(() {
-                _selectedIndex = 7;
-              });
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
-            onPressed: () async {
-              await AuthPersistenceService.clear();
-              await FirebaseAuth.instance.signOut();
-              if (context.mounted) {
-                Navigator.pushReplacement(
-                  context,
-                  AppPageRoute(builder: (_) => const LoginScreen()),
-                );
-              }
-            },
-          ),
-        ],
-      ),
-      drawer: Drawer(
-        backgroundColor: EasySitColors.surface,
-        child: Column(
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
-              decoration: const BoxDecoration(
-                color: EasySitColors.deepPurple,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    'EasySit',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Administrator Portal',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: EasySitColors.logoLavender,
-                    ),
-                  ),
-                ],
-              ),
+          backgroundColor: EasySitColors.primary,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.account_circle_outlined),
+              tooltip: 'Admin Profile',
+              onPressed: () {
+                setState(() {
+                  _selectedIndex = 7;
+                });
+              },
             ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                itemCount: _menuTitles.length,
-                itemBuilder: (context, index) {
-                  final bool isSelected = _selectedIndex == index;
-                  return Container(
-                    margin: const EdgeInsets.symmetric(vertical: 2),
-                    decoration: BoxDecoration(
-                      color: isSelected ? EasySitColors.primaryTint : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-                      leading: Icon(
-                        _menuIcons[index],
-                        color: isSelected ? EasySitColors.primary : EasySitColors.secondaryText,
-                      ),
-                      title: Row(
-                        children: [
-                          if (isSelected)
-                            Container(
-                              width: 4,
-                              height: 18,
-                              margin: const EdgeInsets.only(right: 8),
-                              decoration: BoxDecoration(
-                                color: EasySitColors.primary,
-                                borderRadius: BorderRadius.circular(2),
+            IconButton(
+              icon: const Icon(Icons.logout_rounded),
+              tooltip: 'Logout',
+              onPressed: () async {
+                await AuthPersistenceService.clear();
+                await FirebaseAuth.instance.signOut();
+                if (context.mounted) {
+                  Navigator.pushReplacement(
+                    context,
+                    AppPageRoute(builder: (_) => const LoginScreen()),
+                  );
+                }
+              },
+            ),
+          ],
+        ),
+        drawer: Drawer(
+          backgroundColor: EasySitColors.surface,
+          child: Column(
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(20, 48, 20, 20),
+                decoration: const BoxDecoration(
+                  color: EasySitColors.deepPurple,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.15),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.admin_panel_settings_rounded,
+                            color: EasySitColors.primary,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text(
+                              'EasySit',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                letterSpacing: 0.5,
                               ),
                             ),
-                          Expanded(
-                            child: Text(
-                              _menuTitles[index],
+                            Text(
+                              'Administrator Portal',
                               style: TextStyle(
-                                color: isSelected ? EasySitColors.primary : EasySitColors.mainText,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                fontSize: 14,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: EasySitColors.logoLavender,
                               ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: const BoxDecoration(
+                              color: EasySitColors.successFg,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Text(
+                            'Active Admin Session',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
                       ),
-                      onTap: () {
-                        setState(() {
-                          _selectedIndex = index;
-                        });
-                        Navigator.pop(context);
-                      },
                     ),
-                  );
-                },
+                  ],
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 6),
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  itemCount: _menuTitles.length,
+                  itemBuilder: (context, index) {
+                    final bool isSelected = _selectedIndex == index;
+                    final Color itemColor = _menuIconColors[index];
+                    return Container(
+                      margin: const EdgeInsets.symmetric(vertical: 2.5),
+                      decoration: BoxDecoration(
+                        color: isSelected ? EasySitColors.primaryTint : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                        border: isSelected
+                            ? Border.all(color: EasySitColors.softBlueBorder.withValues(alpha: 0.6))
+                            : null,
+                      ),
+                      child: ListTile(
+                        dense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                        leading: Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? itemColor.withValues(alpha: 0.16)
+                                : itemColor.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            _menuIcons[index],
+                            color: itemColor,
+                            size: 19,
+                          ),
+                        ),
+                        title: Text(
+                          _menuTitles[index],
+                          style: TextStyle(
+                            color: isSelected ? EasySitColors.primary : EasySitColors.mainText,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                            fontSize: 13.5,
+                          ),
+                        ),
+                        trailing: isSelected
+                            ? Container(
+                                width: 6,
+                                height: 6,
+                                decoration: const BoxDecoration(
+                                  color: EasySitColors.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                              )
+                            : null,
+                        onTap: () {
+                          setState(() {
+                            _selectedIndex = index;
+                          });
+                          Navigator.pop(context);
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: EasySitColors.divider, width: 1),
+                  ),
+                ),
+                child: ListTile(
+                  dense: true,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  leading: Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: EasySitColors.errorBg,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.logout_rounded,
+                      color: EasySitColors.errorFg,
+                      size: 19,
+                    ),
+                  ),
+                  title: const Text(
+                    'Sign Out',
+                    style: TextStyle(
+                      color: EasySitColors.errorFg,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                  onTap: () async {
+                    await AuthPersistenceService.clear();
+                    await FirebaseAuth.instance.signOut();
+                    if (context.mounted) {
+                      Navigator.pushReplacement(
+                        context,
+                        AppPageRoute(builder: (_) => const LoginScreen()),
+                      );
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-      body: _buildScreen(_selectedIndex),
+        body: _buildScreen(_selectedIndex),
       ),
     );
   }
@@ -285,7 +406,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case 4:
         return const ManageSeatsScreen();
       case 5:
-        return const StudentBehaviorScreen();
+        return const StudentActivityAccessScreen();
       case 6:
         return const SendNotificationScreen();
       case 7:
@@ -330,49 +451,97 @@ class AdminHomeScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header / Tagline
-          const Text(
-            'YOUR CAMPUS AT A GLANCE',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: EasySitColors.primary,
-              letterSpacing: 1.1,
-            ),
-          ),
-          const SizedBox(height: 4),
-          FutureBuilder<DocumentSnapshot>(
-            future: currentUser != null
-                ? firestore.collection('users').doc(currentUser.uid).get()
-                : null,
-            builder: (context, snapshot) {
-              String adminName = 'Admin';
-              if (snapshot.hasData && snapshot.data != null && snapshot.data!.exists) {
-                var data = snapshot.data!.data() as Map<String, dynamic>?;
-                if (data != null && data['fullName'] != null && (data['fullName'] as String).trim().isNotEmpty) {
-                  adminName = (data['fullName'] as String).trim();
-                }
-              } else if (currentUser?.displayName != null && currentUser!.displayName!.isNotEmpty) {
-                adminName = currentUser.displayName!;
-              }
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    FutureBuilder<DocumentSnapshot>(
+                      future: currentUser != null
+                          ? firestore.collection('users').doc(currentUser.uid).get()
+                          : null,
+                      builder: (context, snapshot) {
+                        String adminName = 'Admin';
+                        if (snapshot.hasData && snapshot.data != null && snapshot.data!.exists) {
+                          var data = snapshot.data!.data() as Map<String, dynamic>?;
+                          if (data != null && data['fullName'] != null && (data['fullName'] as String).trim().isNotEmpty) {
+                            adminName = (data['fullName'] as String).trim();
+                          }
+                        } else if (currentUser?.displayName != null && currentUser!.displayName!.isNotEmpty) {
+                          adminName = currentUser.displayName!;
+                        }
 
-              return Text(
-                '${_getGreeting()}, $adminName',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: EasySitColors.mainText,
+                        return Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: '${_getGreeting()}, ',
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  color: EasySitColors.secondaryText,
+                                ),
+                              ),
+                              TextSpan(
+                                text: adminName,
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w600,
+                                  color: EasySitColors.mainText,
+                                ),
+                              ),
+                            ],
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Spaces, seat usage and student access.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        height: 1.4,
+                        color: EasySitColors.secondaryText,
+                      ),
+                    ),
+                  ],
                 ),
-              );
-            },
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Spaces, seat usage and student access.',
-            style: TextStyle(
-              fontSize: 14,
-              color: EasySitColors.secondaryText,
-            ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: EasySitColors.primaryTint,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: EasySitColors.softBlueBorder),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(
+                      Icons.shield_rounded,
+                      size: 14,
+                      color: EasySitColors.primary,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'Admin',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: EasySitColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 20),
 
@@ -402,15 +571,22 @@ class AdminHomeScreen extends StatelessWidget {
 
               return Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(22.0),
+                padding: const EdgeInsets.all(20.0),
                 decoration: BoxDecoration(
-                  color: EasySitColors.deepPurple,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      EasySitColors.deepPurple,
+                      EasySitColors.splashShadow,
+                    ],
+                  ),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: EasySitColors.deepPurple.withValues(alpha: 0.15),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+                      color: EasySitColors.deepPurple.withValues(alpha: 0.25),
+                      blurRadius: 14,
+                      offset: const Offset(0, 5),
                     ),
                   ],
                 ),
@@ -420,68 +596,152 @@ class AdminHomeScreen extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Seat usage',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.pie_chart_rounded,
+                                size: 16,
+                                color: EasySitColors.logoLavender,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Seat Usage Overview',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ],
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text(
-                            'LIVE DATA',
-                            style: TextStyle(
-                              color: EasySitColors.logoLavender,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.8,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.15),
                             ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: const BoxDecoration(
+                                  color: EasySitColors.successFg,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              const Text(
+                                'LIVE SYNC',
+                                style: TextStyle(
+                                  color: EasySitColors.logoLavender,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          '$occupiedPct%',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 34,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'occupied right now',
+                          style: TextStyle(
+                            color: EasySitColors.logoLavender,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 14),
-                    Text(
-                      '$occupiedPct% occupied',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '$occupiedSeats in use  •  $availableSeats available',
-                      style: const TextStyle(
-                        color: EasySitColors.logoLavender,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(6),
                       child: LinearProgressIndicator(
                         value: progressVal,
-                        backgroundColor: Colors.white.withValues(alpha: 0.2),
+                        backgroundColor: Colors.white.withValues(alpha: 0.15),
                         valueColor: const AlwaysStoppedAnimation<Color>(EasySitColors.primary),
                         minHeight: 8,
                       ),
                     ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildHeroStatPill(
+                            label: 'In Use',
+                            value: occupiedSeats.toString(),
+                            dotColor: EasySitColors.pendingPrimary,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildHeroStatPill(
+                            label: 'Available',
+                            value: availableSeats.toString(),
+                            dotColor: EasySitColors.successFg,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildHeroStatPill(
+                            label: 'Total Capacity',
+                            value: totalSeats.toString(),
+                            dotColor: EasySitColors.softBlueBorder,
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 12),
-                    const Text(
-                      'Live overview • updated in real-time',
-                      style: TextStyle(
-                        color: EasySitColors.mutedLavender,
-                        fontSize: 11,
-                      ),
+                    Row(
+                      children: const [
+                        Icon(
+                          Icons.sync_rounded,
+                          size: 13,
+                          color: EasySitColors.mutedLavender,
+                        ),
+                        SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            'Auto-updated real-time campus seating',
+                            style: TextStyle(
+                              color: EasySitColors.mutedLavender,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w400,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -514,6 +774,10 @@ class AdminHomeScreen extends StatelessWidget {
                             child: _buildMetricCard(
                               number: formattedBuildings,
                               label: 'Buildings',
+                              icon: Icons.apartment_rounded,
+                              iconColor: EasySitColors.computerLabFg,
+                              iconBg: EasySitColors.computerLabBg,
+                              onTap: () => onNavigate(1),
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -521,6 +785,10 @@ class AdminHomeScreen extends StatelessWidget {
                             child: _buildMetricCard(
                               number: formattedRooms,
                               label: 'Rooms',
+                              icon: Icons.meeting_room_rounded,
+                              iconColor: EasySitColors.purpleAccent,
+                              iconBg: EasySitColors.accentTint,
+                              onTap: () => onNavigate(3),
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -528,6 +796,10 @@ class AdminHomeScreen extends StatelessWidget {
                             child: _buildMetricCard(
                               number: seatCount.toString(),
                               label: 'Total seats',
+                              icon: Icons.event_seat_rounded,
+                              iconColor: EasySitColors.primary,
+                              iconBg: EasySitColors.primaryTint,
+                              onTap: () => onNavigate(4),
                             ),
                           ),
                         ],
@@ -550,72 +822,256 @@ class AdminHomeScreen extends StatelessWidget {
               int activeStudents = 0;
               int blockedStudents = 0;
 
-              if (uSnapshot.hasData) {
+              if (uSnapshot.hasData && uSnapshot.data != null) {
                 for (var doc in uSnapshot.data!.docs) {
-                  var data = doc.data() as Map<String, dynamic>;
-                  bool isBlocked = data['isBlocked'] ?? false;
-                  if (isBlocked) {
-                    blockedStudents++;
-                  } else {
-                    activeStudents++;
-                  }
+                  try {
+                    final raw = doc.data();
+                    if (raw is Map) {
+                      final bool isBlocked = raw['isBlocked'] == true;
+                      if (isBlocked) {
+                        blockedStudents++;
+                      } else {
+                        activeStudents++;
+                      }
+                    }
+                  } catch (_) {}
                 }
               }
 
               String formattedActive = activeStudents.toString().padLeft(2, '0');
               String formattedBlocked = blockedStudents.toString().padLeft(2, '0');
 
-              return _buildEasySitCard(
-                margin: EdgeInsets.zero,
-                padding: const EdgeInsets.all(20),
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: EasySitColors.surface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: EasySitColors.divider, width: 1.2),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: EasySitColors.cardShadowColor,
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Student access',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: EasySitColors.mainText,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    const Text(
-                      'Who can use EasySit',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: EasySitColors.secondaryText,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          '$formattedActive active',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: EasySitColors.successFg,
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: EasySitColors.primaryTint,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  Icons.manage_accounts_rounded,
+                                  color: EasySitColors.primary,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: const [
+                                    Text(
+                                      'Student Access Status',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                        color: EasySitColors.mainText,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    SizedBox(height: 2),
+                                    Text(
+                                      'Enrolled accounts & permissions',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: EasySitColors.secondaryText,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 32),
-                        Text(
-                          '$formattedBlocked blocked',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: EasySitColors.errorFg,
+                        const SizedBox(width: 8),
+                        InkWell(
+                          onTap: () => onNavigate(5),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Text(
+                                  'Manage',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: EasySitColors.primary,
+                                  ),
+                                ),
+                                SizedBox(width: 2),
+                                Icon(
+                                  Icons.arrow_forward_ios_rounded,
+                                  size: 11,
+                                  color: EasySitColors.primary,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 14),
-                    const Text(
-                      'Live counts • access status, not usage behavior',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: EasySitColors.secondaryText,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: EasySitColors.successBg,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: EasySitColors.successBorder),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.check_circle_rounded,
+                                    color: EasySitColors.successFg,
+                                    size: 18,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        formattedActive,
+                                        style: const TextStyle(
+                                          fontSize: 19,
+                                          fontWeight: FontWeight.bold,
+                                          color: EasySitColors.successFg,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const Text(
+                                        'Active',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: EasySitColors.successFg,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: EasySitColors.errorBg,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: EasySitColors.errorBorder),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.block_rounded,
+                                    color: EasySitColors.errorFg,
+                                    size: 18,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        formattedBlocked,
+                                        style: const TextStyle(
+                                          fontSize: 19,
+                                          fontWeight: FontWeight.bold,
+                                          color: EasySitColors.errorFg,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const Text(
+                                        'Blocked',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: EasySitColors.errorFg,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: const [
+                        Icon(
+                          Icons.info_outline_rounded,
+                          size: 13,
+                          color: EasySitColors.secondaryText,
+                        ),
+                        SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            'Live access counts • Manage individual permissions in Student Activity',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: EasySitColors.secondaryText,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -625,13 +1081,33 @@ class AdminHomeScreen extends StatelessWidget {
           const SizedBox(height: 24),
 
           // 4. Quick Actions Section (2x2 Grid)
-          const Text(
-            'Quick actions',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: EasySitColors.mainText,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Quick actions',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: EasySitColors.mainText,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: EasySitColors.primaryTint,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  'Shortcuts',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: EasySitColors.primary,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           GridView.count(
@@ -640,26 +1116,38 @@ class AdminHomeScreen extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            childAspectRatio: 1.7,
+            childAspectRatio: 1.05,
             children: [
               _buildQuickActionCard(
-                icon: Icons.business,
-                label: 'Manage\nBuildings',
+                icon: Icons.apartment_rounded,
+                iconColor: EasySitColors.computerLabFg,
+                iconBg: EasySitColors.computerLabBg,
+                title: 'Manage Buildings',
+                subtitle: 'Campus blocks',
                 onTap: () => onNavigate(1),
               ),
               _buildQuickActionCard(
-                icon: Icons.event_seat,
-                label: 'Manage Seats &\nQR',
+                icon: Icons.qr_code_2_rounded,
+                iconColor: EasySitColors.purpleAccent,
+                iconBg: EasySitColors.accentTint,
+                title: 'Seats & QR Codes',
+                subtitle: 'Layouts & codes',
                 onTap: () => onNavigate(4),
               ),
               _buildQuickActionCard(
-                icon: Icons.person_outline,
-                label: 'Student\nBehavior',
+                icon: Icons.manage_accounts_rounded,
+                iconColor: EasySitColors.primary,
+                iconBg: EasySitColors.primaryTint,
+                title: 'Student Activity',
+                subtitle: 'Usage & access',
                 onTap: () => onNavigate(5),
               ),
               _buildQuickActionCard(
-                icon: Icons.notifications_none,
-                label: 'Send\nNotification',
+                icon: Icons.campaign_rounded,
+                iconColor: EasySitColors.pendingAccent,
+                iconBg: EasySitColors.pendingBg,
+                title: 'Send Notification',
+                subtitle: 'Broadcast alerts',
                 onTap: () => onNavigate(6),
               ),
             ],
@@ -669,37 +1157,130 @@ class AdminHomeScreen extends StatelessWidget {
     );
   }
 
-  // Metric Card Helper
-  Widget _buildMetricCard({required String number, required String label}) {
+  // Hero Stat Pill Helper
+  Widget _buildHeroStatPill({
+    required String label,
+    required String value,
+    required Color dotColor,
+  }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: EasySitColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: EasySitColors.divider),
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.12),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            number,
-            style: const TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.bold,
-              color: EasySitColors.primary,
-              letterSpacing: -0.5,
-            ),
+          Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: dotColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: EasySitColors.logoLavender,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 4),
           Text(
-            label,
+            value,
             style: const TextStyle(
-              fontSize: 13,
-              color: EasySitColors.secondaryText,
-              fontWeight: FontWeight.w500,
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
+      ),
+    );
+  }
+
+  // Metric Card Helper
+  Widget _buildMetricCard({
+    required String number,
+    required String label,
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBg,
+    VoidCallback? onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          decoration: BoxDecoration(
+            color: EasySitColors.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: EasySitColors.divider, width: 1.2),
+            boxShadow: const [
+              BoxShadow(
+                color: EasySitColors.cardShadowColor,
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: iconColor, size: 18),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                number,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: EasySitColors.mainText,
+                  letterSpacing: -0.5,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: EasySitColors.secondaryText,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -707,41 +1288,81 @@ class AdminHomeScreen extends StatelessWidget {
   // Quick Action Card Helper
   Widget _buildQuickActionCard({
     required IconData icon,
-    required String label,
+    required Color iconColor,
+    required Color iconBg,
+    required String title,
+    required String subtitle,
     required VoidCallback onTap,
   }) {
     return Material(
-      color: EasySitColors.primaryTint,
-      borderRadius: BorderRadius.circular(12),
+      color: EasySitColors.surface,
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: EasySitColors.softBlueBorder.withValues(alpha: 0.5)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: EasySitColors.primary, size: 22),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: EasySitColors.divider, width: 1.2),
+            boxShadow: const [
+              BoxShadow(
+                color: EasySitColors.cardShadowColor,
+                blurRadius: 6,
+                offset: Offset(0, 2),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: EasySitColors.pressed,
-                    height: 1.2,
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: iconBg,
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Icon(icon, color: iconColor, size: 19),
                   ),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 12,
+                    color: EasySitColors.secondaryText.withValues(alpha: 0.5),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: EasySitColors.mainText,
+                        height: 1.2,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w400,
+                        color: EasySitColors.secondaryText,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -779,6 +1400,8 @@ class _ManageBuildingsScreenState extends State<ManageBuildingsScreen> {
     try {
       await _firestore.collection('buildings').add({
         'name': _nameController.text.trim(),
+        'isBlocked': false,
+        'status': 'active',
         'createdAt': FieldValue.serverTimestamp(),
       });
       _nameController.clear();
@@ -883,6 +1506,645 @@ class _ManageBuildingsScreenState extends State<ManageBuildingsScreen> {
     setState(() => _isLoading = false);
   }
 
+  Future<void> _toggleBuildingMaintenance(
+    String buildingId,
+    String buildingName,
+    bool isCurrentlyBlocked,
+    String? currentReason,
+  ) async {
+    if (!isCurrentlyBlocked) {
+      // Prompt admin to close/block building for maintenance
+      final reasonController = TextEditingController(text: 'Facility maintenance & servicing');
+      final notifyController = TextEditingController(
+        text: '$buildingName is temporarily closed for maintenance. Any active seat bookings have been released, and seat reservations are paused until further notice.',
+      );
+      bool shouldNotify = true;
+
+      bool? confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => StatefulBuilder(
+          builder: (context, setDlgState) {
+            return AlertDialog(
+              backgroundColor: EasySitColors.surface,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: const [
+                  Icon(Icons.block_rounded, color: EasySitColors.warningFg),
+                  SizedBox(width: 8),
+                  Text(
+                    'Close / Block Building',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: EasySitColors.mainText,
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Close "$buildingName" for maintenance or facility work.',
+                      style: const TextStyle(fontSize: 13, color: EasySitColors.secondaryText),
+                    ),
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: EasySitColors.warningBg,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: EasySitColors.warningBorder),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Icon(Icons.warning_amber_rounded, color: EasySitColors.warningFg, size: 20),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'All active and pending seat bookings in this building will be automatically released immediately. Students cannot book seats here until reopened.',
+                              style: TextStyle(fontSize: 12, color: EasySitColors.warningFg, height: 1.3),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: reasonController,
+                      decoration: _buildEasySitInputDecoration(
+                        labelText: 'Reason for Closure',
+                        hintText: 'e.g. Electrical maintenance, deep cleaning',
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: shouldNotify,
+                          activeColor: EasySitColors.primary,
+                          onChanged: (val) {
+                            setDlgState(() => shouldNotify = val ?? true);
+                          },
+                        ),
+                        const Expanded(
+                          child: Text(
+                            'Send notification to all students',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: EasySitColors.mainText),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (shouldNotify) ...[
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: notifyController,
+                        maxLines: 3,
+                        decoration: _buildEasySitInputDecoration(
+                          labelText: 'Notification Message',
+                          hintText: 'Message to broadcast to students...',
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel', style: TextStyle(color: EasySitColors.secondaryText)),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: EasySitColors.warningFg,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text('Close Building & Release Seats'),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+
+      if (confirm != true) return;
+
+      setState(() => _isLoading = true);
+      try {
+        final reason = reasonController.text.trim().isEmpty ? 'Maintenance in progress' : reasonController.text.trim();
+
+        // 1. Update building in Firestore
+        await _firestore.collection('buildings').doc(buildingId).update({
+          'isBlocked': true,
+          'status': 'maintenance',
+          'blockReason': reason,
+          'blockedAt': FieldValue.serverTimestamp(),
+        });
+
+        // 2. Query all floors, rooms, and seats under this building to auto-release
+        int releasedCount = 0;
+        final floorsSnap = await _firestore.collection('floors').where('buildingId', isEqualTo: buildingId).get();
+
+        for (var floorDoc in floorsSnap.docs) {
+          final roomsSnap = await _firestore.collection('rooms').where('floorId', isEqualTo: floorDoc.id).get();
+          for (var roomDoc in roomsSnap.docs) {
+            final seatsSnap = await _firestore.collection('seats').where('roomId', isEqualTo: roomDoc.id).get();
+
+            WriteBatch batch = _firestore.batch();
+            int batchCount = 0;
+
+            for (var seatDoc in seatsSnap.docs) {
+              final sData = seatDoc.data();
+              final status = sData['status'] ?? 'available';
+              if (status == 'booked' || status == 'pending' || sData['bookedBy'] != null || sData['pendingBy'] != null) {
+                releasedCount++;
+              }
+
+              batch.update(seatDoc.reference, {
+                'status': 'unavailable',
+                'isBuildingBlocked': true,
+                'buildingId': buildingId,
+                'blockedReason': reason,
+                'bookedBy': FieldValue.delete(),
+                'bookedAt': FieldValue.delete(),
+                'pendingBy': FieldValue.delete(),
+                'pendingAt': FieldValue.delete(),
+              });
+              batchCount++;
+
+              if (batchCount >= 450) {
+                await batch.commit();
+                batch = _firestore.batch();
+                batchCount = 0;
+              }
+            }
+
+            if (batchCount > 0) {
+              await batch.commit();
+            }
+          }
+        }
+
+        // 3. Send broadcast notification if selected
+        if (shouldNotify && notifyController.text.trim().isNotEmpty) {
+          await _firestore.collection('notifications').add({
+            'title': '⚠️ Building Closed: $buildingName',
+            'message': notifyController.text.trim(),
+            'buildingId': buildingId,
+            'buildingName': buildingName,
+            'reason': reason,
+            'timestamp': FieldValue.serverTimestamp(),
+            'userId': 'all',
+          });
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Building closed. $releasedCount active bookings auto-released.'),
+              backgroundColor: EasySitColors.warningFg,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: EasySitColors.errorFg),
+          );
+        }
+      }
+      setState(() => _isLoading = false);
+    } else {
+      // Reopen building
+      final notifyController = TextEditingController(
+        text: '$buildingName is now reopened! Seats are once again available for reservation.',
+      );
+      bool shouldNotify = true;
+
+      bool? confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => StatefulBuilder(
+          builder: (context, setDlgState) {
+            return AlertDialog(
+              backgroundColor: EasySitColors.surface,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: const [
+                  Icon(Icons.lock_open_rounded, color: EasySitColors.successFg),
+                  SizedBox(width: 8),
+                  Text(
+                    'Reopen Building',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: EasySitColors.mainText,
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Reopen "$buildingName" for student bookings? All seats in this building will become available again.',
+                      style: const TextStyle(fontSize: 13, color: EasySitColors.bodyText),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: shouldNotify,
+                          activeColor: EasySitColors.primary,
+                          onChanged: (val) {
+                            setDlgState(() => shouldNotify = val ?? true);
+                          },
+                        ),
+                        const Expanded(
+                          child: Text(
+                            'Notify students that building is reopened',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: EasySitColors.mainText),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (shouldNotify) ...[
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: notifyController,
+                        maxLines: 3,
+                        decoration: _buildEasySitInputDecoration(
+                          labelText: 'Notification Message',
+                          hintText: 'Message to broadcast to students...',
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel', style: TextStyle(color: EasySitColors.secondaryText)),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: EasySitColors.successFg,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text('Reopen Building'),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+
+      if (confirm != true) return;
+
+      setState(() => _isLoading = true);
+      try {
+        // 1. Update building doc in Firestore
+        await _firestore.collection('buildings').doc(buildingId).update({
+          'isBlocked': false,
+          'status': 'active',
+          'blockReason': FieldValue.delete(),
+          'unblockedAt': FieldValue.serverTimestamp(),
+        });
+
+        // 2. Query all floors, rooms, and seats under this building to reset to available
+        final floorsSnap = await _firestore.collection('floors').where('buildingId', isEqualTo: buildingId).get();
+
+        for (var floorDoc in floorsSnap.docs) {
+          final roomsSnap = await _firestore.collection('rooms').where('floorId', isEqualTo: floorDoc.id).get();
+          for (var roomDoc in roomsSnap.docs) {
+            final seatsSnap = await _firestore.collection('seats').where('roomId', isEqualTo: roomDoc.id).get();
+
+            WriteBatch batch = _firestore.batch();
+            int batchCount = 0;
+
+            for (var seatDoc in seatsSnap.docs) {
+              final sData = seatDoc.data();
+              if (sData['isBuildingBlocked'] == true || sData['status'] == 'unavailable') {
+                batch.update(seatDoc.reference, {
+                  'status': 'available',
+                  'isBuildingBlocked': FieldValue.delete(),
+                  'blockedReason': FieldValue.delete(),
+                });
+                batchCount++;
+
+                if (batchCount >= 450) {
+                  await batch.commit();
+                  batch = _firestore.batch();
+                  batchCount = 0;
+                }
+              }
+            }
+
+            if (batchCount > 0) {
+              await batch.commit();
+            }
+          }
+        }
+
+        // 3. Send notification if checked
+        if (shouldNotify && notifyController.text.trim().isNotEmpty) {
+          await _firestore.collection('notifications').add({
+            'title': '✅ Building Reopened: $buildingName',
+            'message': notifyController.text.trim(),
+            'buildingId': buildingId,
+            'buildingName': buildingName,
+            'timestamp': FieldValue.serverTimestamp(),
+            'userId': 'all',
+          });
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Building "$buildingName" reopened! Seats are now available.'),
+              backgroundColor: EasySitColors.successFg,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: EasySitColors.errorFg),
+          );
+        }
+      }
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _sendBuildingNoticeDialog(String buildingId, String buildingName) async {
+    final titleController = TextEditingController(text: 'Announcement: $buildingName');
+    final messageController = TextEditingController();
+
+    bool? send = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: EasySitColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.campaign_rounded, color: EasySitColors.pendingAccent),
+            SizedBox(width: 8),
+            Text(
+              'Send Building Notice',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: EasySitColors.mainText,
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Broadcast an announcement about $buildingName to all students.',
+                style: const TextStyle(fontSize: 13, color: EasySitColors.secondaryText),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: titleController,
+                decoration: _buildEasySitInputDecoration(
+                  labelText: 'Notice Title',
+                  hintText: 'e.g. Science Library Notice',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: messageController,
+                maxLines: 3,
+                decoration: _buildEasySitInputDecoration(
+                  labelText: 'Notice Message',
+                  hintText: 'Enter notice details for students...',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: EasySitColors.secondaryText)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (messageController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter a message')),
+                );
+                return;
+              }
+              Navigator.pop(ctx, true);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: EasySitColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Send Broadcast'),
+          ),
+        ],
+      ),
+    );
+
+    if (send != true) return;
+
+    try {
+      await _firestore.collection('notifications').add({
+        'title': titleController.text.trim(),
+        'message': messageController.text.trim(),
+        'buildingId': buildingId,
+        'buildingName': buildingName,
+        'timestamp': FieldValue.serverTimestamp(),
+        'userId': 'all',
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Building notice broadcasted to all students!'),
+            backgroundColor: EasySitColors.successFg,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: EasySitColors.errorFg),
+        );
+      }
+    }
+  }
+
+  void _showBuildingActionSheet(String buildingId, String buildingName, bool isBlocked, String? reason) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: EasySitColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      buildingName,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: EasySitColors.mainText,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isBlocked ? EasySitColors.warningBg : EasySitColors.successBg,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: isBlocked ? EasySitColors.warningBorder : EasySitColors.successBorder),
+                    ),
+                    child: Text(
+                      isBlocked ? 'Closed / Maintenance' : 'Active',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: isBlocked ? EasySitColors.warningFg : EasySitColors.successFg,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (isBlocked && (reason ?? '').isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'Reason: $reason',
+                  style: const TextStyle(fontSize: 13, color: EasySitColors.warningFg, fontWeight: FontWeight.w500),
+                ),
+              ],
+              const SizedBox(height: 16),
+              const Divider(color: EasySitColors.divider),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isBlocked ? EasySitColors.successBg : EasySitColors.warningBg,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    isBlocked ? Icons.lock_open_rounded : Icons.block_rounded,
+                    color: isBlocked ? EasySitColors.successFg : EasySitColors.warningFg,
+                    size: 20,
+                  ),
+                ),
+                title: Text(
+                  isBlocked ? 'Reopen Building' : 'Close Building for Maintenance',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: isBlocked ? EasySitColors.successFg : EasySitColors.warningFg,
+                  ),
+                ),
+                subtitle: Text(
+                  isBlocked
+                      ? 'Resume student seat reservations'
+                      : 'Auto-release active seats and pause reservations',
+                  style: const TextStyle(fontSize: 12, color: EasySitColors.secondaryText),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _toggleBuildingMaintenance(buildingId, buildingName, isBlocked, reason);
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: EasySitColors.pendingBg,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.campaign_rounded,
+                    color: EasySitColors.pendingAccent,
+                    size: 20,
+                  ),
+                ),
+                title: const Text(
+                  'Send Building Announcement',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: EasySitColors.mainText,
+                  ),
+                ),
+                subtitle: const Text(
+                  'Broadcast notice about this building to all students',
+                  style: TextStyle(fontSize: 12, color: EasySitColors.secondaryText),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _sendBuildingNoticeDialog(buildingId, buildingName);
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: EasySitColors.errorBg,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: EasySitColors.errorFg,
+                    size: 20,
+                  ),
+                ),
+                title: const Text(
+                  'Delete Building',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: EasySitColors.errorFg,
+                  ),
+                ),
+                subtitle: const Text(
+                  'Permanently delete building and all its floors, rooms, and seats',
+                  style: TextStyle(fontSize: 12, color: EasySitColors.secondaryText),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _deleteBuilding(buildingId);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -895,6 +2157,14 @@ class _ManageBuildingsScreenState extends State<ManageBuildingsScreen> {
               fontSize: 22,
               fontWeight: FontWeight.bold,
               color: EasySitColors.mainText,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Add buildings, manage maintenance closures, and broadcast notices.',
+            style: TextStyle(
+              fontSize: 13,
+              color: EasySitColors.secondaryText,
             ),
           ),
           const SizedBox(height: 16),
@@ -996,33 +2266,136 @@ class _ManageBuildingsScreenState extends State<ManageBuildingsScreen> {
                 itemBuilder: (context, index) {
                   var doc = snapshot.data!.docs[index];
                   var data = doc.data() as Map<String, dynamic>;
+                  final String buildingName = data['name'] ?? 'Unnamed';
+                  final bool isBlocked = data['isBlocked'] ?? false;
+                  final String? blockReason = data['blockReason'] as String?;
+
                   return Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    margin: const EdgeInsets.symmetric(vertical: 6),
                     decoration: BoxDecoration(
                       color: EasySitColors.surface,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: EasySitColors.divider),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isBlocked ? EasySitColors.warningBorder : EasySitColors.divider,
+                        width: isBlocked ? 1.5 : 1.0,
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: EasySitColors.cardShadowColor,
+                          blurRadius: 6,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    child: ListTile(
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: EasySitColors.primaryTint,
-                          borderRadius: BorderRadius.circular(8),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => _showBuildingActionSheet(doc.id, buildingName, isBlocked, blockReason),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: isBlocked ? EasySitColors.warningBg : EasySitColors.primaryTint,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                isBlocked ? Icons.lock_clock_rounded : Icons.business_rounded,
+                                color: isBlocked ? EasySitColors.warningFg : EasySitColors.primary,
+                                size: 22,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          buildingName,
+                                          style: const TextStyle(
+                                            color: EasySitColors.mainText,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: isBlocked ? EasySitColors.warningBg : EasySitColors.successBg,
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(
+                                            color: isBlocked ? EasySitColors.warningBorder : EasySitColors.successBorder,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          isBlocked ? 'Maintenance' : 'Active',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: isBlocked ? EasySitColors.warningFg : EasySitColors.successFg,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 3),
+                                  if (isBlocked)
+                                    Text(
+                                      'Closed: ${blockReason ?? 'Maintenance in progress'}',
+                                      style: const TextStyle(
+                                        color: EasySitColors.warningFg,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    )
+                                  else
+                                    const Text(
+                                      'Available for reservations',
+                                      style: TextStyle(
+                                        color: EasySitColors.secondaryText,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: Icon(
+                                    isBlocked ? Icons.lock_open_rounded : Icons.block_rounded,
+                                    color: isBlocked ? EasySitColors.successFg : EasySitColors.warningFg,
+                                    size: 20,
+                                  ),
+                                  tooltip: isBlocked ? 'Reopen Building' : 'Close for Maintenance',
+                                  onPressed: () => _toggleBuildingMaintenance(doc.id, buildingName, isBlocked, blockReason),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.campaign_outlined, color: EasySitColors.pendingAccent, size: 20),
+                                  tooltip: 'Send Notice',
+                                  onPressed: () => _sendBuildingNoticeDialog(doc.id, buildingName),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: EasySitColors.errorFg, size: 20),
+                                  onPressed: () => _deleteBuilding(doc.id),
+                                  tooltip: 'Delete Building',
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
-                        child: const Icon(Icons.business, color: EasySitColors.primary),
-                      ),
-                      title: Text(
-                        data['name'] ?? 'Unnamed',
-                        style: const TextStyle(
-                          color: EasySitColors.mainText,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline, color: EasySitColors.errorFg),
-                        onPressed: () => _deleteBuilding(doc.id),
-                        tooltip: 'Delete Building',
                       ),
                     ),
                   );
@@ -3367,68 +4740,906 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
 }
 
 // ============================================================
-// 6. STUDENT BEHAVIOR SCREEN
+// 6. STUDENT ACTIVITY & ACCESS SCREEN
 // ============================================================
-class StudentBehaviorScreen extends StatefulWidget {
-  const StudentBehaviorScreen({super.key});
+class StudentActivityAccessScreen extends StatefulWidget {
+  const StudentActivityAccessScreen({super.key});
 
   @override
-  State<StudentBehaviorScreen> createState() => _StudentBehaviorScreenState();
+  State<StudentActivityAccessScreen> createState() => _StudentActivityAccessScreenState();
 }
 
-class _StudentBehaviorScreenState extends State<StudentBehaviorScreen> {
+enum _StudentFilterType { all, active, blocked, highActivity }
+
+class _ParsedSessionRecord {
+  final String rawSeatId;
+  final String cleanSeatId;
+  final DateTime? date;
+  final bool isActive;
+  final String status;
+
+  _ParsedSessionRecord({
+    required this.rawSeatId,
+    required this.cleanSeatId,
+    this.date,
+    this.isActive = false,
+    this.status = 'completed',
+  });
+}
+
+class _StudentActivityAccessScreenState extends State<StudentActivityAccessScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   String _searchQuery = '';
+  _StudentFilterType _selectedFilter = _StudentFilterType.all;
 
-  Future<void> _toggleBlockStatus(String userId, bool currentStatus) async {
-    try {
-      await _firestore.collection('users').doc(userId).update({
-        'isBlocked': !currentStatus,
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(!currentStatus ? 'Student blocked successfully.' : 'Student unblocked successfully.'),
-            backgroundColor: !currentStatus ? EasySitColors.warningFg : EasySitColors.successFg,
-          ),
-        );
+  // Safe timestamp parser from session keys ('{seatId}_{timestamp}')
+  DateTime? _parseSessionTimestamp(String sessionKey) {
+    final int lastUnderscore = sessionKey.lastIndexOf('_');
+    if (lastUnderscore <= 0) return null;
+    final String timeStr = sessionKey.substring(lastUnderscore + 1).trim();
+    final int? val = int.tryParse(timeStr);
+    if (val == null) return null;
+    if (val > 100000000000) {
+      // 11+ digits: milliseconds since epoch
+      return DateTime.fromMillisecondsSinceEpoch(val);
+    } else if (val > 1000000000) {
+      // 10 digits: seconds since epoch
+      return DateTime.fromMillisecondsSinceEpoch(val * 1000);
+    } else {
+      // 8-9 digits: milliseconds ~/ 10000 (UserStatsService fallback)
+      return DateTime.fromMillisecondsSinceEpoch(val * 10000);
+    }
+  }
+
+  String _parseSeatIdFromKey(String sessionKey) {
+    final int lastUnderscore = sessionKey.lastIndexOf('_');
+    final String raw = lastUnderscore > 0 ? sessionKey.substring(0, lastUnderscore) : sessionKey;
+    return raw.replaceFirst('SEAT:', '').trim();
+  }
+
+  String _formatDateTime(DateTime? dt) {
+    if (dt == null) return 'Date unavailable';
+    final now = DateTime.now();
+    final isToday = dt.year == now.year && dt.month == now.month && dt.day == now.day;
+    final yesterday = now.subtract(const Duration(days: 1));
+    final isYesterday = dt.year == yesterday.year && dt.month == yesterday.month && dt.day == yesterday.day;
+
+    final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+    final minute = dt.minute.toString().padLeft(2, '0');
+    final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+    final timeString = '$hour:$minute $ampm';
+
+    if (isToday) {
+      return 'Today • $timeString';
+    } else if (isYesterday) {
+      return 'Yesterday • $timeString';
+    } else {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return '${months[dt.month - 1]} ${dt.day}, ${dt.year} • $timeString';
+    }
+  }
+
+  String _formatStudyHours(int totalMinutes) {
+    if (totalMinutes <= 0) return '0 hrs';
+    final double hours = totalMinutes / 60.0;
+    if (hours < 1.0) {
+      return '$totalMinutes mins';
+    }
+    return '${hours.toStringAsFixed(1)} hrs';
+  }
+
+  String _resolveSeatTitle(
+    String seatId,
+    Map<String, Map<String, dynamic>> seatsData,
+    Map<String, String> roomNames,
+  ) {
+    final cleanId = seatId.replaceFirst('SEAT:', '').trim();
+    final seat = seatsData[cleanId] ?? seatsData[seatId];
+    if (seat != null) {
+      final seatNum = seat['seatNumber']?.toString();
+      final roomId = seat['roomId']?.toString() ?? '';
+      final roomName = seat['roomName']?.toString() ?? roomNames[roomId] ?? '';
+      if (seatNum != null && seatNum.isNotEmpty) {
+        if (roomName.isNotEmpty) {
+          return 'Seat #$seatNum • $roomName';
+        }
+        return 'Seat #$seatNum';
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error updating status: $e'),
-            backgroundColor: EasySitColors.errorFg,
+    }
+    if (cleanId.isNotEmpty) {
+      final display = cleanId.length > 8 ? cleanId.substring(0, 8) : cleanId;
+      return 'Seat $display';
+    }
+    return 'Seat (Recorded)';
+  }
+
+  Future<void> _confirmAndToggleBlock(
+    BuildContext context, {
+    required String userId,
+    required String fullName,
+    required String studentId,
+    required bool currentIsBlocked,
+  }) async {
+    final bool willBlock = !currentIsBlocked;
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: EasySitColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: willBlock ? EasySitColors.errorBg : EasySitColors.successBg,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                willBlock ? Icons.block : Icons.lock_open_rounded,
+                color: willBlock ? EasySitColors.errorFg : EasySitColors.successFg,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                willBlock ? 'Block Student Access?' : 'Unblock Student Access?',
+                style: const TextStyle(
+                  color: EasySitColors.mainText,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          willBlock
+              ? 'Are you sure you want to block $fullName ($studentId)?\n\n'
+                'While blocked, this student will not be able to log in or reserve seats in the library until manually unblocked.'
+              : 'Are you sure you want to unblock $fullName ($studentId)?\n\n'
+                'The student will immediately regain access to log in and reserve seats.',
+          style: const TextStyle(
+            color: EasySitColors.secondaryText,
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            height: 1.4,
           ),
-        );
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                color: EasySitColors.secondaryText,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: willBlock ? EasySitColors.errorFg : EasySitColors.successFg,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              willBlock ? 'Block Student' : 'Unblock Student',
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await _firestore.collection('users').doc(userId).update({
+          'isBlocked': willBlock,
+          'statusUpdatedAt': FieldValue.serverTimestamp(),
+        });
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                willBlock
+                    ? '$fullName has been blocked.'
+                    : '$fullName has been unblocked.',
+              ),
+              backgroundColor: willBlock ? EasySitColors.warningFg : EasySitColors.successFg,
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error updating access status: $e'),
+              backgroundColor: EasySitColors.errorFg,
+            ),
+          );
+        }
       }
     }
   }
 
+  void _showStudentDetailsSheet(
+    BuildContext context, {
+    required String userId,
+    required Map<String, dynamic> studentData,
+    required bool isBlocked,
+    required int totalCompletedSessions,
+    required int totalMinutesStudied,
+    required int differentSeatsUsed,
+    required int sessionsTodayCount,
+    required int maxSessionsInSingleDay,
+    required bool hasHighActivity,
+    required List<_ParsedSessionRecord> sessions,
+    required Map<String, dynamic>? activeBooking,
+    required Map<String, Map<String, dynamic>> seatsData,
+    required Map<String, String> roomNames,
+  }) {
+    final String fullName = studentData['fullName'] ?? 'Unknown Name';
+    final String studentId = studentData['studentId'] ?? 'N/A';
+    final String email = studentData['email'] ?? 'No email';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return StreamBuilder<DocumentSnapshot>(
+              stream: _firestore.collection('users').doc(userId).snapshots(),
+              builder: (context, userSnap) {
+                bool currentIsBlocked = isBlocked;
+                if (userSnap.hasData && userSnap.data!.exists) {
+                  final liveData = userSnap.data!.data() as Map<String, dynamic>?;
+                  if (liveData != null) {
+                    currentIsBlocked = liveData['isBlocked'] == true;
+                  }
+                }
+
+                return DraggableScrollableSheet(
+                  initialChildSize: 0.85,
+                  minChildSize: 0.5,
+                  maxChildSize: 0.95,
+                  builder: (_, scrollController) {
+                    return Container(
+                      decoration: const BoxDecoration(
+                        color: EasySitColors.surface,
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                      ),
+                      child: Column(
+                        children: [
+                          // Sheet drag handle
+                          Container(
+                            margin: const EdgeInsets.only(top: 12, bottom: 8),
+                            width: 44,
+                            height: 5,
+                            decoration: BoxDecoration(
+                              color: EasySitColors.divider,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          // Header
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                            child: Row(
+                              children: [
+                                const Text(
+                                  'Student Activity & Access',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: EasySitColors.mainText,
+                                  ),
+                                ),
+                                const Spacer(),
+                                IconButton(
+                                  icon: const Icon(Icons.close, color: EasySitColors.secondaryText),
+                                  onPressed: () => Navigator.of(sheetContext).pop(),
+                                  tooltip: 'Close',
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Divider(height: 1, color: EasySitColors.divider),
+                          // Scrollable body
+                          Expanded(
+                            child: ListView(
+                              controller: scrollController,
+                              padding: const EdgeInsets.all(20),
+                              children: [
+                                // Student Profile Card
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: EasySitColors.appBackground,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: EasySitColors.divider),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 28,
+                                        backgroundColor: currentIsBlocked
+                                            ? EasySitColors.errorBg
+                                            : EasySitColors.primaryTint,
+                                        child: Text(
+                                          fullName.isNotEmpty
+                                              ? fullName.substring(0, 1).toUpperCase()
+                                              : 'S',
+                                          style: TextStyle(
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.bold,
+                                            color: currentIsBlocked
+                                                ? EasySitColors.errorFg
+                                                : EasySitColors.primary,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 14),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              fullName,
+                                              style: const TextStyle(
+                                                fontSize: 17,
+                                                fontWeight: FontWeight.w600,
+                                                color: EasySitColors.mainText,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 3),
+                                            Text(
+                                              'ID: $studentId',
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w400,
+                                                height: 1.4,
+                                                color: EasySitColors.secondaryText,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 1),
+                                            Text(
+                                              email,
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w400,
+                                                height: 1.4,
+                                                color: EasySitColors.secondaryText,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      // Status Badge
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                        decoration: BoxDecoration(
+                                          color: currentIsBlocked
+                                              ? EasySitColors.errorBg
+                                              : EasySitColors.successBg,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: currentIsBlocked
+                                                ? EasySitColors.errorBorder
+                                                : EasySitColors.successBorder,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              currentIsBlocked
+                                                  ? Icons.block
+                                                  : Icons.check_circle_rounded,
+                                              size: 14,
+                                              color: currentIsBlocked
+                                                  ? EasySitColors.errorFg
+                                                  : EasySitColors.successFg,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              currentIsBlocked ? 'Blocked' : 'Active',
+                                              style: TextStyle(
+                                                color: currentIsBlocked
+                                                    ? EasySitColors.errorFg
+                                                    : EasySitColors.successFg,
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+
+                                // High Activity Banner (Amber Review Recommended)
+                                if (hasHighActivity) ...[
+                                  Container(
+                                    padding: const EdgeInsets.all(14),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFEF3C7), // Light amber bg
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: const Color(0xFFF59E0B)), // Amber border
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Icon(
+                                          Icons.warning_amber_rounded,
+                                          color: Color(0xFFB45309),
+                                          size: 22,
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              const Text(
+                                                'High Activity – Review Recommended',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 14,
+                                                  color: Color(0xFFB45309),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                'This student has recorded 6 or more seat sessions in a single day '
+                                                '($sessionsTodayCount sessions today, peak single-day usage: $maxSessionsInSingleDay). '
+                                                'Student is not automatically blocked. Please review recent seat bookings.',
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w400,
+                                                  color: Color(0xFF92400E),
+                                                  height: 1.4,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                ],
+
+                                // 2x2 Statistics Grid
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildMetricTile(
+                                        icon: Icons.task_alt_rounded,
+                                        iconColor: EasySitColors.primary,
+                                        label: 'Total Completed',
+                                        value: '$totalCompletedSessions sessions',
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: _buildMetricTile(
+                                        icon: Icons.schedule_rounded,
+                                        iconColor: EasySitColors.primary,
+                                        label: 'Total Study Time',
+                                        value: _formatStudyHours(totalMinutesStudied),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildMetricTile(
+                                        icon: Icons.event_seat_rounded,
+                                        iconColor: EasySitColors.primary,
+                                        label: 'Different Seats',
+                                        value: '$differentSeatsUsed used',
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: _buildMetricTile(
+                                        icon: Icons.today_rounded,
+                                        iconColor: sessionsTodayCount >= 6
+                                            ? const Color(0xFFB45309)
+                                            : EasySitColors.primary,
+                                        label: 'Completed Today',
+                                        value: '$sessionsTodayCount sessions',
+                                        isWarning: sessionsTodayCount >= 6,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 20),
+
+                                // Currently Active Session (if any)
+                                if (activeBooking != null) ...[
+                                  const Text(
+                                    'Active Session',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w600,
+                                      color: EasySitColors.mainText,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.all(14),
+                                    decoration: BoxDecoration(
+                                      color: EasySitColors.primaryTint,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: EasySitColors.softBlueBorder),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 10,
+                                          height: 10,
+                                          decoration: const BoxDecoration(
+                                            color: EasySitColors.successFg,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                _resolveSeatTitle(
+                                                  activeBooking['id'] ?? '',
+                                                  seatsData,
+                                                  roomNames,
+                                                ),
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w500,
+                                                  fontSize: 15,
+                                                  color: EasySitColors.mainText,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              const SizedBox(height: 3),
+                                              Text(
+                                                activeBooking['bookedAt'] != null
+                                                    ? 'Booked: ${_formatDateTime((activeBooking['bookedAt'] as Timestamp).toDate())}'
+                                                    : 'Status: In Progress',
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w400,
+                                                  height: 1.4,
+                                                  color: EasySitColors.secondaryText,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: const Text(
+                                            'Occupying Now',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              color: EasySitColors.primary,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                ],
+
+                                // Recently Used Seats
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Recently Used Seats',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                        color: EasySitColors.mainText,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${sessions.length} recorded',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w400,
+                                        color: EasySitColors.secondaryText,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+
+                                if (sessions.isEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: EasySitColors.appBackground,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: EasySitColors.divider),
+                                    ),
+                                    child: const Center(
+                                      child: Text(
+                                        'No session history recorded yet.',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w400,
+                                          height: 1.4,
+                                          color: EasySitColors.secondaryText,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  ...sessions.take(15).map((sess) {
+                                    final String seatTitle = _resolveSeatTitle(
+                                      sess.cleanSeatId,
+                                      seatsData,
+                                      roomNames,
+                                    );
+                                    final String dateStr = _formatDateTime(sess.date);
+
+                                    return Container(
+                                      margin: const EdgeInsets.only(bottom: 8),
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: EasySitColors.surface,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: EasySitColors.divider),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: sess.isActive
+                                                  ? EasySitColors.primaryTint
+                                                  : EasySitColors.appBackground,
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Icon(
+                                              sess.isActive
+                                                  ? Icons.event_seat
+                                                  : Icons.chair_outlined,
+                                              size: 18,
+                                              color: sess.isActive
+                                                  ? EasySitColors.primary
+                                                  : EasySitColors.secondaryText,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  seatTitle,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w500,
+                                                    fontSize: 15,
+                                                    color: EasySitColors.mainText,
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                                const SizedBox(height: 3),
+                                                Text(
+                                                  dateStr,
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w400,
+                                                    height: 1.4,
+                                                    color: EasySitColors.secondaryText,
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          if (sess.isActive)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: EasySitColors.successBg,
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: const Text(
+                                                'Active',
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: EasySitColors.successFg,
+                                                ),
+                                              ),
+                                            )
+                                          else
+                                            const Text(
+                                              'Completed',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                                color: EasySitColors.secondaryText,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    );
+                                  }),
+
+                                const SizedBox(height: 24),
+
+                                // Access Action Button
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: currentIsBlocked
+                                          ? EasySitColors.successFg
+                                          : EasySitColors.errorFg,
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    icon: Icon(
+                                      currentIsBlocked ? Icons.lock_open : Icons.block,
+                                      size: 18,
+                                    ),
+                                    label: Text(
+                                      currentIsBlocked
+                                          ? 'Unblock Student Access'
+                                          : 'Block Student Access',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    onPressed: () {
+                                      _confirmAndToggleBlock(
+                                        context,
+                                        userId: userId,
+                                        fullName: fullName,
+                                        studentId: studentId,
+                                        currentIsBlocked: currentIsBlocked,
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildMetricTile({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required String value,
+    bool isWarning = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isWarning ? const Color(0xFFFEF3C7) : EasySitColors.appBackground,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isWarning ? const Color(0xFFF59E0B) : EasySitColors.divider,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: iconColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    height: 1.4,
+                    color: isWarning ? const Color(0xFF92400E) : EasySitColors.secondaryText,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              color: isWarning ? const Color(0xFFB45309) : EasySitColors.mainText,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
+
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Screen Title
           const Text(
-            'Student Behavior',
+            'Student Activity & Access',
             style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
               color: EasySitColors.mainText,
             ),
           ),
           const SizedBox(height: 6),
           const Text(
-            'Manage student access to the application.',
-            style: TextStyle(fontSize: 13, color: EasySitColors.secondaryText),
+            'Real-time seat usage, activity monitoring, and access controls.',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              height: 1.4,
+              color: EasySitColors.secondaryText,
+            ),
           ),
           const SizedBox(height: 16),
+
+          // Search Bar
           TextField(
             decoration: _buildEasySitInputDecoration(
-              labelText: 'Search by Name, Email, or ID',
+              labelText: 'Search by Name, Email, or Student ID',
               prefixIcon: const Icon(Icons.search, color: EasySitColors.secondaryText),
             ),
             onChanged: (value) {
@@ -3437,129 +5648,673 @@ class _StudentBehaviorScreenState extends State<StudentBehaviorScreen> {
               });
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+
+          // Stream rooms, seats, and users in real-time
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: _firestore
-                  .collection('users')
-                  .where('userType', isEqualTo: 'student')
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Text(
-                      'Error: ${snapshot.error}',
-                      style: const TextStyle(color: EasySitColors.errorFg),
-                    ),
-                  );
-                }
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: EasySitColors.primary),
-                  );
-                }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'No students found.',
-                      style: TextStyle(color: EasySitColors.secondaryText),
-                    ),
-                  );
+              stream: _firestore.collection('rooms').snapshots(),
+              builder: (context, roomsSnap) {
+                final Map<String, String> roomNames = {};
+                if (roomsSnap.hasData) {
+                  for (final d in roomsSnap.data!.docs) {
+                    final data = d.data() as Map<String, dynamic>?;
+                    roomNames[d.id] = data?['name']?.toString() ?? 'Room';
+                  }
                 }
 
-                var docs = snapshot.data!.docs.toList();
-                if (_searchQuery.isNotEmpty) {
-                  docs = docs.where((doc) {
-                    var data = doc.data() as Map<String, dynamic>;
-                    String fullName = (data['fullName'] ?? '').toString().toLowerCase();
-                    String email = (data['email'] ?? '').toString().toLowerCase();
-                    String studentId = (data['studentId'] ?? '').toString().toLowerCase();
-                    return fullName.contains(_searchQuery) || 
-                           email.contains(_searchQuery) || 
-                           studentId.contains(_searchQuery);
-                  }).toList();
-                }
+                return StreamBuilder<QuerySnapshot>(
+                  stream: _firestore.collection('seats').snapshots(),
+                  builder: (context, seatsSnap) {
+                    final Map<String, Map<String, dynamic>> seatsData = {};
+                    final Map<String, Map<String, dynamic>> activeSessionByStudent = {};
 
-                if (docs.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'No matching students found.',
-                      style: TextStyle(color: EasySitColors.secondaryText),
-                    ),
-                  );
-                }
+                    if (seatsSnap.hasData) {
+                      for (final d in seatsSnap.data!.docs) {
+                        final data = d.data() as Map<String, dynamic>;
+                        final map = Map<String, dynamic>.from(data);
+                        map['id'] = d.id;
+                        seatsData[d.id] = map;
 
-                return ListView.builder(
-                  itemCount: docs.length,
-                  itemBuilder: (context, index) {
-                    var doc = docs[index];
-                    var data = doc.data() as Map<String, dynamic>;
-                    bool isBlocked = data['isBlocked'] ?? false;
-                    String fullName = data['fullName'] ?? 'Unknown Name';
-                    String studentId = data['studentId'] ?? 'Unknown ID';
-                    String email = data['email'] ?? 'No email';
+                        final bookedBy = data['bookedBy']?.toString();
+                        final pendingBy = data['pendingBy']?.toString();
+                        if (bookedBy != null && bookedBy.isNotEmpty) {
+                          activeSessionByStudent[bookedBy] = map;
+                        } else if (pendingBy != null && pendingBy.isNotEmpty) {
+                          activeSessionByStudent[pendingBy] = map;
+                        }
+                      }
+                    }
 
-                    return Container(
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      decoration: BoxDecoration(
-                        color: EasySitColors.surface,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: EasySitColors.divider),
-                      ),
-                      child: ListTile(
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: isBlocked ? EasySitColors.errorBg : EasySitColors.primaryTint,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            isBlocked ? Icons.block : Icons.person,
-                            color: isBlocked ? EasySitColors.errorFg : EasySitColors.primary,
-                          ),
-                        ),
-                        title: Text(
-                          fullName,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: EasySitColors.mainText,
-                          ),
-                        ),
-                        subtitle: Text(
-                          '$studentId • $email',
-                          style: const TextStyle(color: EasySitColors.secondaryText, fontSize: 12),
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Student access status badge per guidelines
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: isBlocked ? EasySitColors.errorBg : EasySitColors.successBg,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: isBlocked ? EasySitColors.errorBorder : EasySitColors.successBorder,
-                                ),
-                              ),
-                              child: Text(
-                                isBlocked ? 'Blocked' : 'Active',
-                                style: TextStyle(
-                                  color: isBlocked ? EasySitColors.errorFg : EasySitColors.successFg,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
+                    return StreamBuilder<QuerySnapshot>(
+                      stream: _firestore
+                          .collection('users')
+                          .where('userType', isEqualTo: 'student')
+                          .snapshots(),
+                      builder: (context, usersSnap) {
+                        if (usersSnap.hasError) {
+                          return Center(
+                            child: Text(
+                              'Error loading students: ${usersSnap.error}',
+                              style: const TextStyle(
+                                color: EasySitColors.errorFg,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w400,
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Switch(
-                              value: isBlocked,
-                              activeColor: EasySitColors.errorFg,
-                              onChanged: (value) => _toggleBlockStatus(doc.id, isBlocked),
+                          );
+                        }
+                        if (usersSnap.connectionState == ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(color: EasySitColors.primary),
+                          );
+                        }
+                        if (!usersSnap.hasData || usersSnap.data!.docs.isEmpty) {
+                          return const Center(
+                            child: Text(
+                              'No registered students found.',
+                              style: TextStyle(
+                                color: EasySitColors.secondaryText,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          );
+                        }
+
+                        // Pre-process student records
+                        final allDocs = usersSnap.data!.docs;
+                        final List<Map<String, dynamic>> processedStudents = [];
+
+                        int countActive = 0;
+                        int countBlocked = 0;
+                        int countHighActivity = 0;
+
+                        for (final doc in allDocs) {
+                          final data = doc.data() as Map<String, dynamic>;
+                          final String uid = doc.id;
+                          final String fullName = data['fullName'] ?? 'Unknown Name';
+                          final String studentId = data['studentId'] ?? 'Unknown ID';
+                          final String email = data['email'] ?? 'No email';
+                          final bool isBlocked = data['isBlocked'] == true;
+
+                          if (isBlocked) {
+                            countBlocked++;
+                          } else {
+                            countActive++;
+                          }
+
+                          final List<dynamic> rawCompletedKeys =
+                              List<dynamic>.from(data['completedSessionKeys'] ?? []);
+                          final int storedSessionsCompleted =
+                              (data['sessionsCompleted'] as num?)?.toInt() ?? rawCompletedKeys.length;
+                          final int totalCompletedSessions = storedSessionsCompleted >= rawCompletedKeys.length
+                              ? storedSessionsCompleted
+                              : rawCompletedKeys.length;
+
+                          final int totalMinutesStudied =
+                              (data['totalMinutesStudied'] as num?)?.toInt() ?? 0;
+
+                          final Set<String> usedSeatsSet = (data['usedSeats'] as List? ?? [])
+                              .map((e) => e.toString().replaceFirst('SEAT:', '').trim())
+                              .where((e) => e.isNotEmpty)
+                              .toSet();
+                          final int storedDifferentSeats =
+                              (data['differentSeatsUsed'] as num?)?.toInt() ?? usedSeatsSet.length;
+                          final int differentSeatsUsed = storedDifferentSeats >= usedSeatsSet.length
+                              ? storedDifferentSeats
+                              : usedSeatsSet.length;
+
+                          // Parse session keys
+                          final List<_ParsedSessionRecord> sessions = [];
+                          for (final keyObj in rawCompletedKeys) {
+                            final key = keyObj.toString();
+                            final date = _parseSessionTimestamp(key);
+                            final cleanSeat = _parseSeatIdFromKey(key);
+                            sessions.add(
+                              _ParsedSessionRecord(
+                                rawSeatId: key,
+                                cleanSeatId: cleanSeat,
+                                date: date,
+                                isActive: false,
+                                status: 'completed',
+                              ),
+                            );
+                          }
+
+                          // If lastSessionCompletedAt exists and newest session lacks date, fallback safely
+                          if (data['lastSessionCompletedAt'] != null && sessions.isNotEmpty) {
+                            final Timestamp ts = data['lastSessionCompletedAt'] as Timestamp;
+                            if (sessions.last.date == null) {
+                              final last = sessions.removeLast();
+                              sessions.add(
+                                _ParsedSessionRecord(
+                                  rawSeatId: last.rawSeatId,
+                                  cleanSeatId: last.cleanSeatId,
+                                  date: ts.toDate(),
+                                  isActive: false,
+                                  status: 'completed',
+                                ),
+                              );
+                            }
+                          }
+
+                          // Add active booking if exists
+                          final Map<String, dynamic>? activeBooking = activeSessionByStudent[uid];
+                          if (activeBooking != null) {
+                            DateTime? activeDate;
+                            final bookedAt = activeBooking['bookedAt'] as Timestamp?;
+                            final pendingAt = activeBooking['pendingAt'] as Timestamp?;
+                            if (bookedAt != null) {
+                              activeDate = bookedAt.toDate();
+                            } else if (pendingAt != null) {
+                              activeDate = pendingAt.toDate();
+                            }
+
+                            sessions.insert(
+                              0,
+                              _ParsedSessionRecord(
+                                rawSeatId: activeBooking['id'] ?? '',
+                                cleanSeatId: (activeBooking['id'] ?? '').toString().replaceFirst('SEAT:', '').trim(),
+                                date: activeDate,
+                                isActive: true,
+                                status: activeBooking['status'] ?? 'booked',
+                              ),
+                            );
+                          }
+
+                          // Sort sessions newest first (treating null dates as oldest)
+                          sessions.sort((a, b) {
+                            if (a.isActive && !b.isActive) return -1;
+                            if (!a.isActive && b.isActive) return 1;
+                            if (a.date == null && b.date == null) return 0;
+                            if (a.date == null) return 1;
+                            if (b.date == null) return -1;
+                            return b.date!.compareTo(a.date!);
+                          });
+
+                          // Calculate sessions completed today
+                          int sessionsTodayCount = 0;
+                          final Map<String, int> dailyCounts = {};
+
+                          for (final sess in sessions) {
+                            if (sess.date != null) {
+                              final dt = sess.date!;
+                              final isToday = dt.year == now.year && dt.month == now.month && dt.day == now.day;
+                              if (isToday) {
+                                sessionsTodayCount++;
+                              }
+                              final dayKey = '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+                              dailyCounts[dayKey] = (dailyCounts[dayKey] ?? 0) + 1;
+                            }
+                          }
+
+                          int maxDailyCount = sessionsTodayCount;
+                          for (final count in dailyCounts.values) {
+                            if (count > maxDailyCount) maxDailyCount = count;
+                          }
+
+                          // High activity threshold: 6 or more sessions in one day
+                          // Do not automatically block them.
+                          final bool hasHighActivity = sessionsTodayCount >= 6 || maxDailyCount >= 6;
+                          if (hasHighActivity) {
+                            countHighActivity++;
+                          }
+
+                          processedStudents.add({
+                            'doc': doc,
+                            'userId': uid,
+                            'data': data,
+                            'fullName': fullName,
+                            'studentId': studentId,
+                            'email': email,
+                            'isBlocked': isBlocked,
+                            'totalCompletedSessions': totalCompletedSessions,
+                            'totalMinutesStudied': totalMinutesStudied,
+                            'differentSeatsUsed': differentSeatsUsed,
+                            'sessionsTodayCount': sessionsTodayCount,
+                            'maxSessionsInSingleDay': maxDailyCount,
+                            'hasHighActivity': hasHighActivity,
+                            'sessions': sessions,
+                            'activeBooking': activeBooking,
+                          });
+                        }
+
+                        // Filter by search query
+                        var filteredList = processedStudents;
+                        if (_searchQuery.isNotEmpty) {
+                          filteredList = filteredList.where((item) {
+                            final name = item['fullName'].toString().toLowerCase();
+                            final sid = item['studentId'].toString().toLowerCase();
+                            final em = item['email'].toString().toLowerCase();
+                            return name.contains(_searchQuery) ||
+                                sid.contains(_searchQuery) ||
+                                em.contains(_searchQuery);
+                          }).toList();
+                        }
+
+                        // Filter by chip category
+                        if (_selectedFilter == _StudentFilterType.active) {
+                          filteredList = filteredList.where((item) => item['isBlocked'] == false).toList();
+                        } else if (_selectedFilter == _StudentFilterType.blocked) {
+                          filteredList = filteredList.where((item) => item['isBlocked'] == true).toList();
+                        } else if (_selectedFilter == _StudentFilterType.highActivity) {
+                          filteredList = filteredList.where((item) => item['hasHighActivity'] == true).toList();
+                        }
+
+                        return Column(
+                          children: [
+                            // Filter Chips Row
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  _buildFilterChip(
+                                    label: 'All (${processedStudents.length})',
+                                    selected: _selectedFilter == _StudentFilterType.all,
+                                    onTap: () => setState(() => _selectedFilter = _StudentFilterType.all),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildFilterChip(
+                                    label: 'Active ($countActive)',
+                                    selected: _selectedFilter == _StudentFilterType.active,
+                                    onTap: () => setState(() => _selectedFilter = _StudentFilterType.active),
+                                    activeColor: EasySitColors.successFg,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildFilterChip(
+                                    label: 'Blocked ($countBlocked)',
+                                    selected: _selectedFilter == _StudentFilterType.blocked,
+                                    onTap: () => setState(() => _selectedFilter = _StudentFilterType.blocked),
+                                    activeColor: EasySitColors.errorFg,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildFilterChip(
+                                    label: 'High Activity ($countHighActivity)',
+                                    selected: _selectedFilter == _StudentFilterType.highActivity,
+                                    onTap: () => setState(() => _selectedFilter = _StudentFilterType.highActivity),
+                                    activeColor: const Color(0xFFB45309),
+                                    isWarningChip: true,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // List of Students
+                            Expanded(
+                              child: filteredList.isEmpty
+                                  ? const Center(
+                                      child: Text(
+                                        'No matching students found.',
+                                        style: TextStyle(
+                                          color: EasySitColors.secondaryText,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                      ),
+                                    )
+                                  : ListView.builder(
+                                      itemCount: filteredList.length,
+                                      itemBuilder: (context, index) {
+                                        final item = filteredList[index];
+                                        final String uid = item['userId'];
+                                        final Map<String, dynamic> data = item['data'];
+                                        final String fullName = item['fullName'];
+                                        final String studentId = item['studentId'];
+                                        final String email = item['email'];
+                                        final bool isBlocked = item['isBlocked'];
+                                        final int totalCompletedSessions = item['totalCompletedSessions'];
+                                        final int totalMinutesStudied = item['totalMinutesStudied'];
+                                        final int differentSeatsUsed = item['differentSeatsUsed'];
+                                        final int sessionsTodayCount = item['sessionsTodayCount'];
+                                        final int maxSessionsInSingleDay = item['maxSessionsInSingleDay'];
+                                        final bool hasHighActivity = item['hasHighActivity'];
+                                        final List<_ParsedSessionRecord> sessions = item['sessions'];
+                                        final Map<String, dynamic>? activeBooking = item['activeBooking'];
+
+                                        final _ParsedSessionRecord? mostRecent =
+                                            sessions.isNotEmpty ? sessions.first : null;
+
+                                        return Container(
+                                          margin: const EdgeInsets.symmetric(vertical: 6),
+                                          decoration: BoxDecoration(
+                                            color: EasySitColors.surface,
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: hasHighActivity
+                                                  ? const Color(0xFFF59E0B)
+                                                  : EasySitColors.divider,
+                                              width: hasHighActivity ? 1.5 : 1.0,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withValues(alpha: 0.03),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Material(
+                                            color: Colors.transparent,
+                                            child: InkWell(
+                                              borderRadius: BorderRadius.circular(12),
+                                              onTap: () {
+                                                _showStudentDetailsSheet(
+                                                  context,
+                                                  userId: uid,
+                                                  studentData: data,
+                                                  isBlocked: isBlocked,
+                                                  totalCompletedSessions: totalCompletedSessions,
+                                                  totalMinutesStudied: totalMinutesStudied,
+                                                  differentSeatsUsed: differentSeatsUsed,
+                                                  sessionsTodayCount: sessionsTodayCount,
+                                                  maxSessionsInSingleDay: maxSessionsInSingleDay,
+                                                  hasHighActivity: hasHighActivity,
+                                                  sessions: sessions,
+                                                  activeBooking: activeBooking,
+                                                  seatsData: seatsData,
+                                                  roomNames: roomNames,
+                                                );
+                                              },
+                                              child: Padding(
+                                                padding: const EdgeInsets.all(16.0),
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    // Top Row: Avatar, Name & ID, Status Chip
+                                                    Row(
+                                                      children: [
+                                                        CircleAvatar(
+                                                          radius: 20,
+                                                          backgroundColor: isBlocked
+                                                              ? EasySitColors.errorBg
+                                                              : EasySitColors.primaryTint,
+                                                          child: Text(
+                                                            fullName.isNotEmpty
+                                                                ? fullName.substring(0, 1).toUpperCase()
+                                                                : 'S',
+                                                            style: TextStyle(
+                                                              color: isBlocked
+                                                                  ? EasySitColors.errorFg
+                                                                  : EasySitColors.primary,
+                                                              fontWeight: FontWeight.bold,
+                                                              fontSize: 15,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(width: 12),
+                                                        Expanded(
+                                                          child: Column(
+                                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                                            children: [
+                                                              Text(
+                                                                fullName,
+                                                                style: const TextStyle(
+                                                                  fontSize: 17,
+                                                                  fontWeight: FontWeight.w600,
+                                                                  color: EasySitColors.mainText,
+                                                                ),
+                                                                maxLines: 1,
+                                                                overflow: TextOverflow.ellipsis,
+                                                              ),
+                                                              const SizedBox(height: 3),
+                                                              Text(
+                                                                '$studentId • $email',
+                                                                style: const TextStyle(
+                                                                  fontSize: 14,
+                                                                  fontWeight: FontWeight.w400,
+                                                                  height: 1.4,
+                                                                  color: EasySitColors.secondaryText,
+                                                                ),
+                                                                maxLines: 1,
+                                                                overflow: TextOverflow.ellipsis,
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                        const SizedBox(width: 8),
+                                                        // Active or Blocked Badge
+                                                        Container(
+                                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                                          decoration: BoxDecoration(
+                                                            color: isBlocked
+                                                                ? EasySitColors.errorBg
+                                                                : EasySitColors.successBg,
+                                                            borderRadius: BorderRadius.circular(12),
+                                                            border: Border.all(
+                                                              color: isBlocked
+                                                                  ? EasySitColors.errorBorder
+                                                                  : EasySitColors.successBorder,
+                                                            ),
+                                                          ),
+                                                          child: Text(
+                                                            isBlocked ? 'Blocked' : 'Active',
+                                                            style: TextStyle(
+                                                              color: isBlocked
+                                                                  ? EasySitColors.errorFg
+                                                                  : EasySitColors.successFg,
+                                                              fontWeight: FontWeight.w600,
+                                                              fontSize: 13,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+
+                                                    // Amber Warning Badge for High Activity (>= 6 in one day)
+                                                    if (hasHighActivity) ...[
+                                                      const SizedBox(height: 10),
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                                        decoration: BoxDecoration(
+                                                          color: const Color(0xFFFEF3C7),
+                                                          borderRadius: BorderRadius.circular(8),
+                                                          border: Border.all(color: const Color(0xFFF59E0B)),
+                                                        ),
+                                                        child: Row(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: const [
+                                                            Icon(
+                                                              Icons.warning_amber_rounded,
+                                                              size: 16,
+                                                              color: Color(0xFFB45309),
+                                                            ),
+                                                            SizedBox(width: 6),
+                                                            Flexible(
+                                                              child: Text(
+                                                                'High Activity – Review Recommended',
+                                                                style: TextStyle(
+                                                                  color: Color(0xFFB45309),
+                                                                  fontWeight: FontWeight.w600,
+                                                                  fontSize: 13,
+                                                                ),
+                                                                overflow: TextOverflow.ellipsis,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ],
+
+                                                    const SizedBox(height: 12),
+
+                                                    // Quick Metrics Row (4 stats)
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                                                      decoration: BoxDecoration(
+                                                        color: EasySitColors.appBackground,
+                                                        borderRadius: BorderRadius.circular(8),
+                                                      ),
+                                                      child: Row(
+                                                        children: [
+                                                          Expanded(
+                                                            child: _buildInlineStat(
+                                                              label: 'Sessions',
+                                                              value: '$totalCompletedSessions',
+                                                            ),
+                                                          ),
+                                                          Container(width: 1, height: 28, color: EasySitColors.divider),
+                                                          Expanded(
+                                                            child: _buildInlineStat(
+                                                              label: 'Hours',
+                                                              value: _formatStudyHours(totalMinutesStudied),
+                                                            ),
+                                                          ),
+                                                          Container(width: 1, height: 28, color: EasySitColors.divider),
+                                                          Expanded(
+                                                            child: _buildInlineStat(
+                                                              label: 'Seats',
+                                                              value: '$differentSeatsUsed',
+                                                            ),
+                                                          ),
+                                                          Container(width: 1, height: 28, color: EasySitColors.divider),
+                                                          Expanded(
+                                                            child: _buildInlineStat(
+                                                              label: 'Today',
+                                                              value: '$sessionsTodayCount',
+                                                              isWarning: sessionsTodayCount >= 6,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+
+                                                    const SizedBox(height: 10),
+
+                                                    // Recently Used Seat Line
+                                                    Row(
+                                                      children: [
+                                                        Icon(
+                                                          mostRecent != null && mostRecent.isActive
+                                                              ? Icons.circle
+                                                              : Icons.history,
+                                                          size: 15,
+                                                          color: mostRecent != null && mostRecent.isActive
+                                                              ? EasySitColors.successFg
+                                                              : EasySitColors.secondaryText,
+                                                        ),
+                                                        const SizedBox(width: 6),
+                                                        Expanded(
+                                                          child: Text(
+                                                            mostRecent != null
+                                                                ? (mostRecent.isActive
+                                                                    ? 'Active now: ${_resolveSeatTitle(mostRecent.cleanSeatId, seatsData, roomNames)}'
+                                                                    : 'Recent: ${_resolveSeatTitle(mostRecent.cleanSeatId, seatsData, roomNames)} (${_formatDateTime(mostRecent.date)})')
+                                                                : 'No seat sessions recorded yet',
+                                                            style: TextStyle(
+                                                              fontSize: 13,
+                                                              color: mostRecent != null && mostRecent.isActive
+                                                                  ? EasySitColors.primary
+                                                                  : EasySitColors.secondaryText,
+                                                              fontWeight: mostRecent != null && mostRecent.isActive
+                                                                  ? FontWeight.w600
+                                                                  : FontWeight.w400,
+                                                              height: 1.4,
+                                                            ),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+
+                                                    const SizedBox(height: 10),
+                                                    const Divider(height: 1, color: EasySitColors.divider),
+                                                    const SizedBox(height: 8),
+
+                                                    // Action Row: View Activity Details & Manual Block/Unblock
+                                                    Row(
+                                                      children: [
+                                                        TextButton.icon(
+                                                          style: TextButton.styleFrom(
+                                                            padding: const EdgeInsets.symmetric(vertical: 4),
+                                                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                          ),
+                                                          icon: const Icon(
+                                                            Icons.info_outline,
+                                                            size: 16,
+                                                            color: EasySitColors.primary,
+                                                          ),
+                                                          label: const Text(
+                                                            'View Activity Details',
+                                                            style: TextStyle(
+                                                              fontSize: 14,
+                                                              fontWeight: FontWeight.w600,
+                                                              color: EasySitColors.primary,
+                                                            ),
+                                                          ),
+                                                          onPressed: () {
+                                                            _showStudentDetailsSheet(
+                                                              context,
+                                                              userId: uid,
+                                                              studentData: data,
+                                                              isBlocked: isBlocked,
+                                                              totalCompletedSessions: totalCompletedSessions,
+                                                              totalMinutesStudied: totalMinutesStudied,
+                                                              differentSeatsUsed: differentSeatsUsed,
+                                                              sessionsTodayCount: sessionsTodayCount,
+                                                              maxSessionsInSingleDay: maxSessionsInSingleDay,
+                                                              hasHighActivity: hasHighActivity,
+                                                              sessions: sessions,
+                                                              activeBooking: activeBooking,
+                                                              seatsData: seatsData,
+                                                              roomNames: roomNames,
+                                                            );
+                                                          },
+                                                        ),
+                                                        const Spacer(),
+                                                        OutlinedButton.icon(
+                                                          style: OutlinedButton.styleFrom(
+                                                            side: BorderSide(
+                                                              color: isBlocked
+                                                                  ? EasySitColors.successBorder
+                                                                  : EasySitColors.errorBorder,
+                                                            ),
+                                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                            minimumSize: Size.zero,
+                                                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                            shape: RoundedRectangleBorder(
+                                                              borderRadius: BorderRadius.circular(8),
+                                                            ),
+                                                          ),
+                                                          icon: Icon(
+                                                            isBlocked ? Icons.lock_open : Icons.block,
+                                                            size: 15,
+                                                            color: isBlocked ? EasySitColors.successFg : EasySitColors.errorFg,
+                                                          ),
+                                                          label: Text(
+                                                            isBlocked ? 'Unblock' : 'Block',
+                                                            style: TextStyle(
+                                                              fontSize: 14,
+                                                              fontWeight: FontWeight.w600,
+                                                              color: isBlocked ? EasySitColors.successFg : EasySitColors.errorFg,
+                                                            ),
+                                                          ),
+                                                          onPressed: () {
+                                                            _confirmAndToggleBlock(
+                                                              context,
+                                                              userId: uid,
+                                                              fullName: fullName,
+                                                              studentId: studentId,
+                                                              currentIsBlocked: isBlocked,
+                                                            );
+                                                          },
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
                             ),
                           ],
-                        ),
-                      ),
+                        );
+                      },
                     );
                   },
                 );
@@ -3570,7 +6325,81 @@ class _StudentBehaviorScreenState extends State<StudentBehaviorScreen> {
       ),
     );
   }
+
+  Widget _buildInlineStat({
+    required String label,
+    required String value,
+    bool isWarning = false,
+  }) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: isWarning ? const Color(0xFFB45309) : EasySitColors.mainText,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 3),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            height: 1.4,
+            color: EasySitColors.secondaryText,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+    Color activeColor = EasySitColors.primary,
+    bool isWarningChip = false,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? (isWarningChip ? const Color(0xFFFEF3C7) : activeColor.withValues(alpha: 0.12))
+              : EasySitColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected
+                ? (isWarningChip ? const Color(0xFFF59E0B) : activeColor)
+                : EasySitColors.divider,
+            width: selected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: selected
+                ? (isWarningChip ? const Color(0xFFB45309) : activeColor)
+                : EasySitColors.bodyText,
+          ),
+        ),
+      ),
+    );
+  }
 }
+
+// Backward compatibility alias
+typedef StudentBehaviorScreen = StudentActivityAccessScreen;
 
 // ============================================================
 // 7. ADMIN PROFILE SCREEN
