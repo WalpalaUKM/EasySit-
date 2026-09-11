@@ -397,12 +397,15 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
       final seatSnap = await _firestore.collection('seats').doc(seatId).get();
       if (seatSnap.exists) {
         final sData = seatSnap.data() as Map<String, dynamic>;
-        if ((sData['status'] ?? '') == 'unavailable' || sData['isBuildingBlocked'] == true) {
+        if ((sData['status'] ?? '') == 'unavailable' ||
+            sData['isBuildingBlocked'] == true ||
+            sData['isFloorBlocked'] == true ||
+            sData['isRoomBlocked'] == true) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                  'Cannot book seat. Building is closed for ${sData['blockedReason'] ?? 'maintenance'}.',
+                  'Cannot book seat. Location is closed for ${sData['blockedReason'] ?? 'maintenance'}.',
                 ),
                 backgroundColor: EasySitColors.errorFg,
               ),
@@ -818,8 +821,11 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                                   });
                                 }
 
-                                bool isBuildingClosed = effectiveStatus == 'unavailable' || seatData['isBuildingBlocked'] == true;
-                                if (isBuildingClosed) {
+                                bool isLocationClosed = effectiveStatus == 'unavailable' ||
+                                    seatData['isBuildingBlocked'] == true ||
+                                    seatData['isFloorBlocked'] == true ||
+                                    seatData['isRoomBlocked'] == true;
+                                if (isLocationClosed) {
                                   effectiveStatus = 'unavailable';
                                 }
 
