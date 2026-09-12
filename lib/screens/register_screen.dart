@@ -28,61 +28,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
   String _errorMessage = '';
-  int _prevEmailLength = 0;
 
   @override
   void initState() {
     super.initState();
     _passwordController.addListener(_onFieldChanged);
     _confirmPasswordController.addListener(_onFieldChanged);
-    _emailController.addListener(_onEmailChanged);
   }
 
   void _onFieldChanged() {
     if (mounted) setState(() {});
   }
 
-  // ============================================================================
-  // [UNIVERSITY EMAIL AUTOFILL ON '@' SYMBOL]
-  // ============================================================================
-  /// Automatically completes "stu.kln.ac.lk" when the student types '@'
-  /// after entering their name and department/reg number details (e.g. name-ct23001@).
-  void _onEmailChanged() {
-    final text = _emailController.text;
-    // Trigger only when typing forward and the text ends with '@'
-    if (text.length > _prevEmailLength && text.endsWith('@')) {
-      final prefix = text.substring(0, text.length - 1);
-      // Ensure prefix has content and doesn't already contain another '@'
-      if (!prefix.contains('@') && prefix.isNotEmpty) {
-        final autofilled = '${text}stu.kln.ac.lk';
-        _prevEmailLength = autofilled.length;
-        _emailController.value = TextEditingValue(
-          text: autofilled,
-          selection: TextSelection.collapsed(offset: autofilled.length),
-        );
-
-        // Conveniently auto-populate Student ID if currently empty (e.g. name-ct23001 -> CT23001)
-        if (_studentIdController.text.trim().isEmpty) {
-          final idMatch = RegExp(
-            r'-(ct|cs|et)(\d{2}\d{3})$',
-            caseSensitive: false,
-          ).firstMatch(prefix);
-          if (idMatch != null) {
-            _studentIdController.text =
-                '${idMatch.group(1)!.toUpperCase()}${idMatch.group(2)}';
-          }
-        }
-        return;
-      }
-    }
-    _prevEmailLength = text.length;
-  }
-
   @override
   void dispose() {
     _passwordController.removeListener(_onFieldChanged);
     _confirmPasswordController.removeListener(_onFieldChanged);
-    _emailController.removeListener(_onEmailChanged);
     _fullNameController.dispose();
     _studentIdController.dispose();
     _emailController.dispose();

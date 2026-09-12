@@ -21,39 +21,13 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _isLoading = false;
   bool _rememberMe = false;
-  int _prevInputLength = 0;
-
   @override
   void initState() {
     super.initState();
-    _studentNumberController.addListener(_onStudentNumberChanged);
-  }
-
-  // ============================================================================
-  // [UNIVERSITY EMAIL AUTOFILL ON '@' SYMBOL]
-  // ============================================================================
-  /// Automatically completes "stu.kln.ac.lk" when the student enters '@'
-  /// in the identifier field.
-  void _onStudentNumberChanged() {
-    final text = _studentNumberController.text;
-    if (text.length > _prevInputLength && text.endsWith('@')) {
-      final prefix = text.substring(0, text.length - 1);
-      if (!prefix.contains('@') && prefix.isNotEmpty) {
-        final autofilled = '${text}stu.kln.ac.lk';
-        _prevInputLength = autofilled.length;
-        _studentNumberController.value = TextEditingValue(
-          text: autofilled,
-          selection: TextSelection.collapsed(offset: autofilled.length),
-        );
-        return;
-      }
-    }
-    _prevInputLength = text.length;
   }
 
   @override
   void dispose() {
-    _studentNumberController.removeListener(_onStudentNumberChanged);
     _studentNumberController.dispose();
     _passwordController.dispose();
     super.dispose();
