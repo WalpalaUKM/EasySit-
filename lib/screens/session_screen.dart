@@ -5,7 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/notification_service.dart';
 import '../services/user_stats_service.dart';
-import '../services/seat_expiry_service.dart';
+import '../utils/booking_timer_config.dart';
 import '../widgets/app_bottom_nav.dart';
 import 'student_home_screen.dart';
 import 'qr_scanner_screen.dart';
@@ -76,13 +76,11 @@ class _SessionScreenState extends State<SessionScreen>
       _isLoading = false;
       if (initialStatus == 'booked') {
         Timestamp? bookedAt = _activeBooking!['bookedAt'] as Timestamp?;
-        // [BOOKED SESSION EXPIRATION]:
-        // Duration: 2 hours (120 minutes) (unit: minutes).
-        // How to change safely: Change Duration(hours: 2) to desired duration (e.g. 60).
+        // Active booking duration in minutes (2 hours = 120 minutes)
         DateTime sessionEnd =
             bookedAt != null
-                ? bookedAt.toDate().add(const Duration(hours: 2))
-                : DateTime.now().add(const Duration(hours: 2));
+                ? bookedAt.toDate().add(BookingTimerConfig.activeBookingDuration)
+                : DateTime.now().add(BookingTimerConfig.activeBookingDuration);
         _startTimerForBooked(
           _activeBooking!['seatId']?.toString() ??
               _activeBooking!['docId']?.toString() ??
@@ -94,13 +92,11 @@ class _SessionScreenState extends State<SessionScreen>
         );
       } else if (initialStatus == 'pending') {
         Timestamp? pendingAt = _activeBooking!['pendingAt'] as Timestamp?;
-        // [PENDING RESERVATION EXPIRATION / GRACE PERIOD]:
-        // Duration: 20 minutes (unit: minutes). Countdown to scan QR at seat.
-        // How to change safely: Change Duration(minutes: 20) to desired grace period (e.g. 15).
+        // Pending reservation duration in minutes (20 minutes)
         DateTime expiresAt =
             pendingAt != null
-                ? pendingAt.toDate().add(const Duration(minutes: 20))
-                : DateTime.now().add(const Duration(minutes: 20));
+                ? pendingAt.toDate().add(BookingTimerConfig.pendingReservationDuration)
+                : DateTime.now().add(BookingTimerConfig.pendingReservationDuration);
         _startTimerForPending(
           _activeBooking!['seatId']?.toString() ??
               _activeBooking!['docId']?.toString() ??
@@ -178,8 +174,9 @@ class _SessionScreenState extends State<SessionScreen>
     if (status == 'pending') {
       Timestamp? pendingAt = data['pendingAt'] as Timestamp?;
       if (pendingAt != null) {
+        // Pending reservation duration in minutes (20 minutes)
         DateTime expiresAt = pendingAt.toDate().add(
-          const Duration(minutes: 20),
+          BookingTimerConfig.pendingReservationDuration,
         );
         _startTimerForPending(doc.id, seatNumber, expiresAt);
       }
@@ -203,10 +200,11 @@ class _SessionScreenState extends State<SessionScreen>
     } else if (status == 'booked') {
       Timestamp? bookedAt = data['bookedAt'] as Timestamp?;
       DateTime sessionEnd;
+      // Active booking duration in minutes (2 hours = 120 minutes)
       if (bookedAt != null) {
-        sessionEnd = bookedAt.toDate().add(const Duration(hours: 2));
+        sessionEnd = bookedAt.toDate().add(BookingTimerConfig.activeBookingDuration);
       } else {
-        sessionEnd = DateTime.now().add(const Duration(hours: 2));
+        sessionEnd = DateTime.now().add(BookingTimerConfig.activeBookingDuration);
       }
       _startTimerForBooked(
         doc.id,
@@ -332,14 +330,14 @@ class _SessionScreenState extends State<SessionScreen>
       int secs = expiresAt.difference(DateTime.now()).inSeconds;
       if (secs <= 0) {
         timer.cancel();
+        setState(() => _remainingSeconds = 0);
         _releaseExpired(seatId);
       } else {
         setState(() => _remainingSeconds = secs);
       }
     });
-    setState(
-      () => _remainingSeconds = expiresAt.difference(DateTime.now()).inSeconds,
-    );
+    final initialSecs = expiresAt.difference(DateTime.now()).inSeconds;
+    setState(() => _remainingSeconds = initialSecs > 0 ? initialSecs : 0);
   }
 
   /// Starts 1-second interval countdown ticker for active booked sessions (unit: seconds).
@@ -358,6 +356,7 @@ class _SessionScreenState extends State<SessionScreen>
 
       if (secs <= 0) {
         timer.cancel();
+        setState(() => _remainingSeconds = 0);
         _autoReleaseSeat(seatId);
         return;
       }
@@ -365,9 +364,8 @@ class _SessionScreenState extends State<SessionScreen>
       setState(() => _remainingSeconds = secs);
     });
 
-    setState(
-      () => _remainingSeconds = sessionEnd.difference(DateTime.now()).inSeconds,
-    );
+    final initialSecs = sessionEnd.difference(DateTime.now()).inSeconds;
+    setState(() => _remainingSeconds = initialSecs > 0 ? initialSecs : 0);
   }
 
   // ============================================================================
@@ -1041,11 +1039,11 @@ class _SessionScreenState extends State<SessionScreen>
                             _remainingSeconds > 0
                                 ? (_remainingSeconds /
                                         (isPending
-                                            ? (SeatExpiryService
-                                                    .pendingDurationMinutes *
+                                            ? (BookingTimerConfig
+                                                    .pendingReservationDurationMinutes *
                                                 60)
-                                            : (SeatExpiryService
-                                                    .bookedDurationMinutes *
+                                            : (BookingTimerConfig
+                                                    .activeBookingDurationMinutes *
                                                 60)))
                                     .clamp(0.0, 1.0)
                                 : 0,
