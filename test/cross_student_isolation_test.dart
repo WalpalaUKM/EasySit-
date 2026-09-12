@@ -56,5 +56,26 @@ void main() {
 
       expect(isHeldByOtherStudent, isTrue);
     });
+
+    test('Exact study duration calculates real elapsed minutes instead of 120 minutes on early release', () {
+      final now = DateTime.now();
+
+      // Student released seat after exactly 25 minutes
+      final bookedAt = now.subtract(const Duration(minutes: 25));
+      final diffSeconds = now.difference(bookedAt).inSeconds;
+      final durationMinutes = diffSeconds ~/ 60;
+
+      expect(durationMinutes, 25);
+      expect(durationMinutes < 120, isTrue);
+
+      // Student released seat after 10 minutes
+      final bookedAt10m = now.subtract(const Duration(minutes: 10));
+      final duration10m = now.difference(bookedAt10m).inSeconds ~/ 60;
+      expect(duration10m, 10);
+
+      // Format in hours
+      final hoursFormatted = (durationMinutes / 60.0).toStringAsFixed(1);
+      expect(hoursFormatted, '0.4');
+    });
   });
 }

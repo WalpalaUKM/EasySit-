@@ -54,16 +54,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int _totalMinutesStudied = 0;
   int _differentSeatsUsed = 0;
 
-  /// Formats total minutes studied into decimal or integer hours (e.g. 1.5 hrs).
+  /// Formats total minutes studied into decimal hours (e.g. 0.2, 1.5 hrs).
   String get _hoursStudiedFormatted {
-    num val = _totalMinutesStudied > 0
-        ? (_totalMinutesStudied / 60.0) // Unit: Hours (converted from minutes)
-        : _hoursStudiedNum;
-    if (val <= 0) return '0';
-    if (val == val.roundToDouble()) {
-      return val.toInt().toString();
+    num totalMinutes = _totalMinutesStudied > 0 ? _totalMinutesStudied : (_hoursStudiedNum * 60);
+    if (totalMinutes <= 0) return '0';
+    double hours = totalMinutes / 60.0;
+    if (hours == hours.roundToDouble()) {
+      return hours.toInt().toString();
     }
-    return val.toStringAsFixed(1);
+    return hours.toStringAsFixed(1);
   }
 
   final TextEditingController _nameCtrl = TextEditingController();
@@ -118,7 +117,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadUserData() async {
     if (_user == null) return;
     try {
-      // First try local cache for instant zero-latency render
+      // 1. First try local cache for instant zero-latency render
       try {
         DocumentSnapshot cacheDoc = await _firestore
             .collection('users')
@@ -129,7 +128,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       } catch (_) {}
 
-      // Real-time listener for user profile and statistics updates
+      // 2. Fetch fresh user document from server immediately
+      try {
+        DocumentSnapshot serverDoc = await _firestore
+            .collection('users')
+            .doc(_user.uid)
+            .get(const GetOptions(source: Source.server));
+        if (serverDoc.exists && mounted) {
+          _applyUserData(serverDoc.data() as Map<String, dynamic>);
+        }
+      } catch (_) {}
+
+      // 3. Real-time listener for ongoing user profile and statistics updates
       _userDocSub?.cancel();
       _userDocSub = _firestore
           .collection('users')

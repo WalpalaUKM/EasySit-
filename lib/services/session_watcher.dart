@@ -312,11 +312,10 @@ class SessionWatcher {
         return;
       }
       if (sData?['status'] == 'booked') {
-        UserStatsService.recordCompletedSession(
+        await UserStatsService.recordCompletedSession(
           userId: user.uid,
           seatId: seatId,
           bookedAt: (sData?['bookedAt'] as Timestamp?)?.toDate(),
-          fallbackMinutes: 120,
         );
       }
       await FirebaseFirestore.instance.collection('seats').doc(seatId).update({

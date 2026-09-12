@@ -402,13 +402,25 @@ class _SessionScreenState extends State<SessionScreen>
         }
       }
 
-      // Record completed session stats if active
+      // Record completed session stats if active with exact duration
       if (_user != null && _bookingStatus == 'booked') {
         DateTime? bookedAt;
         if (_activeBooking?['bookedAt'] is Timestamp) {
           bookedAt = (_activeBooking!['bookedAt'] as Timestamp).toDate();
+        } else if (_activeBooking?['bookedAt'] is DateTime) {
+          bookedAt = _activeBooking!['bookedAt'] as DateTime;
         }
-        UserStatsService.recordCompletedSession(
+
+        // Also check fresh document from Firestore to ensure exact bookedAt
+        final freshDoc = await _firestore.collection('seats').doc(seatId).get();
+        if (freshDoc.exists) {
+          final fData = freshDoc.data();
+          if (fData?['bookedAt'] is Timestamp) {
+            bookedAt = (fData!['bookedAt'] as Timestamp).toDate();
+          }
+        }
+
+        await UserStatsService.recordCompletedSession(
           userId: _user.uid,
           seatId: seatId,
           bookedAt: bookedAt,
@@ -585,8 +597,17 @@ class _SessionScreenState extends State<SessionScreen>
       DateTime? bookedAt;
       if (_activeBooking?['bookedAt'] is Timestamp) {
         bookedAt = (_activeBooking!['bookedAt'] as Timestamp).toDate();
+      } else if (_activeBooking?['bookedAt'] is DateTime) {
+        bookedAt = _activeBooking!['bookedAt'] as DateTime;
       }
-      UserStatsService.recordCompletedSession(
+      final freshDoc = await _firestore.collection('seats').doc(seatId).get();
+      if (freshDoc.exists) {
+        final fData = freshDoc.data();
+        if (fData?['bookedAt'] is Timestamp) {
+          bookedAt = (fData!['bookedAt'] as Timestamp).toDate();
+        }
+      }
+      await UserStatsService.recordCompletedSession(
         userId: _user.uid,
         seatId: seatId,
         bookedAt: bookedAt,

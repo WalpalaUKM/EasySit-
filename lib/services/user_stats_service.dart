@@ -29,16 +29,30 @@ class UserStatsService {
           ? '${cleanSeatId}_${bookedAt.millisecondsSinceEpoch}'
           : '${cleanSeatId}_${effectiveBookedAt.millisecondsSinceEpoch ~/ 10000}';
 
-      // [STUDY DURATION CALCULATION]:
+      // [EXACT STUDY DURATION CALCULATION]:
       // Unit: Minutes (int).
-      // Fallback: 120 minutes (2 hours standard study session duration).
-      // Safeguard: Capped at 720 minutes (12 hours) to avoid abnormally large values if system clock jumps.
-      int durationMinutes = fallbackMinutes ?? 120;
+      // Calculate actual elapsed minutes from bookedAt to now.
+      // If bookedAt is provided, calculate the real time spent.
+      // Only if bookedAt is completely absent, use fallbackMinutes (defaulting to 1 minute if early release).
+      int durationMinutes;
       if (bookedAt != null) {
-        final diff = DateTime.now().difference(bookedAt).inMinutes;
-        if (diff > 0) {
-          durationMinutes = diff > 720 ? 120 : diff; // Safeguard against stale dates
+        final now = DateTime.now();
+        final diffSeconds = now.difference(bookedAt).inSeconds;
+        // If elapsed time is less than 60 seconds, record as 1 minute of active study
+        if (diffSeconds <= 0) {
+          durationMinutes = 1;
+        } else if (diffSeconds < 60) {
+          durationMinutes = 1;
+        } else {
+          // Exact minutes studied, rounded or floored accurately
+          durationMinutes = diffSeconds ~/ 60;
         }
+        // Safeguard against stale dates or jumps: max 120 minutes (or standard session max)
+        if (durationMinutes > 720) {
+          durationMinutes = 120;
+        }
+      } else {
+        durationMinutes = fallbackMinutes ?? 1;
       }
       if (durationMinutes <= 0) durationMinutes = 1;
 
