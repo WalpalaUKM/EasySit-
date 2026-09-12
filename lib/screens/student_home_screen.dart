@@ -11,6 +11,7 @@ import '../services/seat_expiry_service.dart';
 import '../widgets/app_bottom_nav.dart';
 import 'profile_screen.dart';
 import 'notification_screen.dart';
+import '../utils/booking_timer_config.dart';
 import '../utils/app_page_route.dart';
 import '../widgets/notification_bell_button.dart';
 import '../widgets/reservation_expired_dialog.dart';
@@ -331,15 +332,16 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
         var data = doc.data() as Map<String, dynamic>;
         Timestamp? bookedAt = data['bookedAt'] as Timestamp?;
         if (bookedAt != null) {
+          // Active booking duration in minutes (120 min)
           DateTime expiresAt = bookedAt.toDate().add(
-            const Duration(hours: 2),
+            BookingTimerConfig.activeBookingDuration,
           );
           if (now.isAfter(expiresAt)) {
             await UserStatsService.recordCompletedSession(
               userId: _user.uid,
               seatId: doc.id,
               bookedAt: bookedAt.toDate(),
-              fallbackMinutes: 120,
+              fallbackMinutes: BookingTimerConfig.activeBookingDurationMinutes,
             );
             await SeatExpiryService.releaseExpiredSeatIfNeeded(doc.id, data);
           }
@@ -357,8 +359,9 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
         var data = doc.data() as Map<String, dynamic>;
         Timestamp? pendingAt = data['pendingAt'] as Timestamp?;
         if (pendingAt != null) {
+          // Pending reservation duration in minutes (20 min)
           DateTime expiresAt = pendingAt.toDate().add(
-            const Duration(minutes: 20),
+            BookingTimerConfig.pendingReservationDuration,
           );
           if (DateTime.now().isAfter(expiresAt)) {
             await SeatExpiryService.releaseExpiredSeatIfNeeded(doc.id, data);

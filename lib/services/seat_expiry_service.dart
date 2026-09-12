@@ -1,54 +1,35 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/booking_timer_config.dart';
 import 'user_stats_service.dart';
 
 class SeatExpiryService {
   // ============================================================================
-  // TIMING CONFIGURATION (UNITS & HOW TO CHANGE SAFELY)
+  // TIMING CONFIGURATION (REFERENCED FROM CENTRAL BOOKING TIMER CONFIG)
   // ============================================================================
-  // [SESSION DURATION]: Active study session time once QR is scanned/confirmed.
-  // Unit: Minutes (int).
-  // Current: 120 minutes (2 hours standard study session).
-  // How to change safely: Change this integer (e.g., set to 120 for 2 hours, 60 for 1 hour).
-  // NOTE: Keep in sync with functions/index.js (BOOKED_DURATION_MINUTES) & SessionWatcher.
-  static const int bookedDurationMinutes = 120;
+  // Active booking duration in minutes (2 hours = 120 minutes)
+  static const int bookedDurationMinutes =
+      BookingTimerConfig.activeBookingDurationMinutes;
 
-  // [RESERVATION GRACE PERIOD]: Time a student has to arrive and scan the QR code.
-  // Unit: Minutes (int).
-  // Current: 20 minutes.
-  // How to change safely: Change this integer (e.g., set to 20 for 20 minutes).
-  // NOTE: Keep in sync with functions/index.js (PENDING_DURATION_MINUTES).
-  static const int pendingDurationMinutes = 20;
+  // Pending reservation duration in minutes (20 minutes)
+  static const int pendingDurationMinutes =
+      BookingTimerConfig.pendingReservationDurationMinutes;
+
+  // Warning notification time in minutes (2 minutes)
+  static const int warningNotificationMinutes =
+      BookingTimerConfig.warningNotificationMinutes;
 
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   /// REAL-TIME CHECK: Returns true if seat status is 'booked' or 'pending'
-  /// but its allotted duration has expired based on current device time.
+  /// but its allotted duration has expired based on saved Firestore timestamp.
   static bool isSeatExpired(Map<String, dynamic>? seatData) {
     if (seatData == null) return false;
     final String status = seatData['status']?.toString() ?? 'available';
     if (status == 'available') return false;
 
-    final now = DateTime.now();
-
-    if (status == 'booked') {
-      // Compares current time against (bookedAt timestamp + bookedDurationMinutes)
-      final bookedAt = seatData['bookedAt'] as Timestamp?;
-      if (bookedAt == null) return false;
-      final expiresAt = bookedAt.toDate().add(
-        const Duration(minutes: bookedDurationMinutes),
-      );
-      return now.isAfter(expiresAt);
-    } else if (status == 'pending') {
-      // Compares current time against (pendingAt timestamp + pendingDurationMinutes)
-      final pendingAt = seatData['pendingAt'] as Timestamp?;
-      if (pendingAt == null) return false;
-      final expiresAt = pendingAt.toDate().add(
-        const Duration(minutes: pendingDurationMinutes),
-      );
-      return now.isAfter(expiresAt);
-    }
-
-    return false;
+    final exp = getExpirationTime(seatData);
+    if (exp == null) return false;
+    return DateTime.now().isAfter(exp);
   }
 
   /// Returns 'available' if the seat is expired or currently marked available;
@@ -61,7 +42,8 @@ class SeatExpiryService {
     return seatData['status']?.toString() ?? 'available';
   }
 
-  /// Calculates the exact expiration DateTime for a booked or pending seat.
+  /// Calculates the exact expiration DateTime for a booked or pending seat
+  /// using the saved booking/reservation timestamp.
   static DateTime? getExpirationTime(Map<String, dynamic>? seatData) {
     if (seatData == null) return null;
     final String status = seatData['status']?.toString() ?? '';
@@ -69,18 +51,23 @@ class SeatExpiryService {
     if (status == 'booked') {
       final bookedAt = seatData['bookedAt'] as Timestamp?;
       if (bookedAt == null) return null;
-      return bookedAt.toDate().add(
-        const Duration(minutes: bookedDurationMinutes),
-      );
+      return bookedAt.toDate().add(BookingTimerConfig.activeBookingDuration);
     } else if (status == 'pending') {
       final pendingAt = seatData['pendingAt'] as Timestamp?;
       if (pendingAt == null) return null;
-      return pendingAt.toDate().add(
-        const Duration(minutes: pendingDurationMinutes),
-      );
+      return pendingAt.toDate().add(BookingTimerConfig.pendingReservationDuration);
     }
 
     return null;
+  }
+
+  /// Returns remaining duration in seconds based on the saved timestamp.
+  /// Returns 0 if expired or not active.
+  static int getRemainingSeconds(Map<String, dynamic>? seatData) {
+    final exp = getExpirationTime(seatData);
+    if (exp == null) return 0;
+    final diff = exp.difference(DateTime.now()).inSeconds;
+    return diff > 0 ? diff : 0;
   }
 
   static final Set<String> _inFlightReleases = {};

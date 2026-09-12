@@ -12,6 +12,7 @@ import '../widgets/reservation_expired_dialog.dart';
 import '../services/notification_service.dart';
 import '../services/user_stats_service.dart';
 import '../services/seat_expiry_service.dart';
+import '../utils/booking_timer_config.dart';
 import '../utils/app_page_route.dart';
 import '../utils/app_colors.dart';
 
@@ -202,11 +203,11 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           // Grace Period Duration: 20 minutes (unit: minutes).
           // If the student arrived after 20 minutes, the reservation is expired.
           // In that case, seat resets to 'available' and ReservationExpiredDialog is shown.
-          // How to change safely: Modify Duration(minutes: 20) to match SeatExpiryService.pendingDurationMinutes.
+          // Pending reservation duration in minutes (20 min)
           Timestamp? pendingAt = data['pendingAt'] as Timestamp?;
           if (pendingAt != null) {
             DateTime expiresAt = pendingAt.toDate().add(
-              const Duration(minutes: 20),
+              BookingTimerConfig.pendingReservationDuration,
             );
             if (DateTime.now().isAfter(expiresAt)) {
               await FirebaseFirestore.instance

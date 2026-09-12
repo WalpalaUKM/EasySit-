@@ -13,7 +13,7 @@ import '../utils/app_page_route.dart';
 import '../utils/app_colors.dart';
 import '../widgets/notification_bell_button.dart';
 import '../services/auth_persistence_service.dart';
-import '../services/seat_expiry_service.dart';
+import '../utils/booking_timer_config.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool isTab;
@@ -35,6 +35,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final User? _user = FirebaseAuth.instance.currentUser;
 
   String _fullName = '';
+  String _studentNumber = '';
   String _email = '';
   String _phone = '';
   String _userType = 'Student';
@@ -66,6 +67,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   final TextEditingController _nameCtrl = TextEditingController();
+  final TextEditingController _studentNumberCtrl = TextEditingController();
   final TextEditingController _emailCtrl = TextEditingController();
   final TextEditingController _phoneCtrl = TextEditingController();
   bool _isSaving = false;
@@ -88,6 +90,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _studentNumberCtrl.dispose();
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
     _bookedSub?.cancel();
@@ -135,12 +138,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _applyUserData(Map<String, dynamic> data) {
     final name = (data['fullName'] ?? '').toString().trim();
+    var studentNum =
+        (data['studentId'] ?? data['studentNumber'] ?? '').toString().trim();
+    final emailVal = (data['email'] ?? _user?.email ?? '').toString().trim();
+    if (studentNum.isEmpty && emailVal.isNotEmpty) {
+      final match = RegExp(r'[-_]([a-zA-Z]{2}\d{5})@').firstMatch(emailVal);
+      if (match != null) {
+        studentNum = match.group(1)?.toUpperCase() ?? '';
+      }
+    }
     if (name.isNotEmpty && ProfileScreen.userNameNotifier.value != name) {
       ProfileScreen.userNameNotifier.value = name;
     }
     setState(() {
       _fullName = name;
-      _email = data['email'] ?? _user?.email ?? '';
+      _studentNumber = studentNum;
+      _email = emailVal;
       _phone = data['phone'] ?? '';
       _userType = data['userType'] ?? 'Student';
       _sessionsCompleted = (data['sessionsCompleted'] as num?)?.toInt() ?? 0;
@@ -176,6 +189,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     });
     _nameCtrl.text = _fullName;
+    _studentNumberCtrl.text = _studentNumber;
     _emailCtrl.text = _email;
     _phoneCtrl.text = _phone;
   }
@@ -344,9 +358,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final bool isBooked =
         _activeBooking!['status'] == 'booked' ||
         _activeBooking!['bookedAt'] != null;
+    // Calculates remaining session time using central durations from BookingTimerConfig
     final duration = isBooked
-        ? const Duration(minutes: SeatExpiryService.bookedDurationMinutes)
-        : const Duration(minutes: SeatExpiryService.pendingDurationMinutes);
+        ? BookingTimerConfig.activeBookingDuration
+        : BookingTimerConfig.pendingReservationDuration;
     final expiresAt = ts.toDate().add(duration);
     final diff = expiresAt.difference(DateTime.now());
     if (diff.isNegative) return '00:00';
@@ -364,20 +379,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _saveProfile() async {
     if (_user == null) return;
     final newName = _nameCtrl.text.trim();
-    if (newName.isNotEmpty) {
-      ProfileScreen.userNameNotifier.value = newName;
+    if (newName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Full name cannot be empty.'),
+          backgroundColor: EasySitColors.errorFg,
+        ),
+      );
+      return;
     }
+
+    final newPhone = _phoneCtrl.text.trim();
+    // Phone-number validation: must contain exactly 10 digits (digits only)
+    if (newPhone.length != 10 || !RegExp(r'^\d{10}$').hasMatch(newPhone)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Phone number must contain exactly 10 digits.'),
+          backgroundColor: EasySitColors.errorFg,
+        ),
+      );
+      return;
+    }
+
+    ProfileScreen.userNameNotifier.value = newName;
     setState(() => _isSaving = true);
     try {
+      // In Edit Profile, students can edit ONLY:
+      // 1. Full name
+      // 2. Phone number
+      // Student number and university email are read-only.
       await _firestore.collection('users').doc(_user.uid).update({
         'fullName': newName,
-        'email': _emailCtrl.text.trim(),
-        'phone': _phoneCtrl.text.trim(),
+        'phone': newPhone,
       });
       setState(() {
         _fullName = newName;
-        _email = _emailCtrl.text.trim();
-        _phone = _phoneCtrl.text.trim();
+        _phone = newPhone;
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -523,6 +560,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ],
                     ),
                     const SizedBox(height: 18),
+                    // Full Name (Editable)
                     TextField(
                       controller: _nameCtrl,
                       decoration: InputDecoration(
@@ -545,34 +583,79 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 14),
+
+                    // Student Number (Read-only)
                     TextField(
-                      controller: _emailCtrl,
-                      keyboardType: TextInputType.emailAddress,
+                      controller: _studentNumberCtrl,
+                      enabled: false,
+                      style: TextStyle(color: Colors.grey.shade700),
                       decoration: InputDecoration(
-                        labelText: 'Email Address',
+                        labelText: 'Student Number (Read-only)',
                         prefixIcon: const Icon(
-                          Icons.email_outlined,
-                          color: EasySitColors.primary,
+                          Icons.badge_outlined,
+                          color: EasySitColors.secondaryText,
                         ),
+                        suffixIcon: const Icon(
+                          Icons.lock_outline_rounded,
+                          size: 18,
+                          color: EasySitColors.secondaryText,
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey.shade100,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: EasySitColors.inputBorder),
+                          borderSide: const BorderSide(color: EasySitColors.divider),
                         ),
-                        focusedBorder: OutlineInputBorder(
+                        disabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(
-                            color: EasySitColors.focusRing,
-                            width: 2,
-                          ),
+                          borderSide: const BorderSide(color: EasySitColors.divider),
                         ),
                       ),
                     ),
                     const SizedBox(height: 14),
+
+                    // University Email (Read-only)
+                    TextField(
+                      controller: _emailCtrl,
+                      enabled: false,
+                      style: TextStyle(color: Colors.grey.shade700),
+                      decoration: InputDecoration(
+                        labelText: 'University Email (Read-only)',
+                        prefixIcon: const Icon(
+                          Icons.email_outlined,
+                          color: EasySitColors.secondaryText,
+                        ),
+                        suffixIcon: const Icon(
+                          Icons.lock_outline_rounded,
+                          size: 18,
+                          color: EasySitColors.secondaryText,
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey.shade100,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: EasySitColors.divider),
+                        ),
+                        disabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: EasySitColors.divider),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Phone Number (Editable - 10 digits only)
                     TextField(
                       controller: _phoneCtrl,
                       keyboardType: TextInputType.phone,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(10),
+                      ],
                       decoration: InputDecoration(
                         labelText: 'Phone Number',
+                        hintText: 'e.g. 0712345678',
+                        helperText: 'Must contain exactly 10 digits',
                         prefixIcon: const Icon(
                           Icons.phone_outlined,
                           color: EasySitColors.primary,
@@ -866,102 +949,205 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 74,
-            height: 74,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [EasySitColors.primary, EasySitColors.focusRing],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: EasySitColors.cardShadow,
-                  blurRadius: 10,
-                  offset: Offset(0, 4),
+          Row(
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [EasySitColors.primary, EasySitColors.focusRing],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: EasySitColors.cardShadow,
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Center(
-              child: Text(
-                _fullName.trim().isNotEmpty
-                    ? _fullName.trim()[0].toUpperCase()
-                    : (_email.trim().isNotEmpty
-                        ? _email.trim()[0].toUpperCase()
-                        : 'S'),
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  letterSpacing: 0.5,
+                child: Center(
+                  child: Text(
+                    _fullName.trim().isNotEmpty
+                        ? _fullName.trim()[0].toUpperCase()
+                        : (_email.trim().isNotEmpty
+                            ? _email.trim()[0].toUpperCase()
+                            : 'S'),
+                    style: const TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _fullName.isNotEmpty ? _fullName : 'Student',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: EasySitColors.textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: EasySitColors.primaryTint,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.school_rounded,
+                            size: 15,
+                            color: EasySitColors.primary,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            _userType.isNotEmpty ? _userType : 'Student',
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: EasySitColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 16),
+          const Divider(height: 1, thickness: 1, color: EasySitColors.divider),
+          const SizedBox(height: 14),
+          // Student Details: Full name, Student number, University email, Phone number
+          _buildProfileDetailRow(
+            icon: Icons.person_outline_rounded,
+            label: 'Full Name',
+            value: _fullName.isNotEmpty ? _fullName : 'Not set',
+          ),
+          const SizedBox(height: 10),
+          _buildProfileDetailRow(
+            icon: Icons.badge_outlined,
+            label: 'Student Number',
+            value: _studentNumber.isNotEmpty ? _studentNumber : 'Not set',
+            isReadOnly: true,
+          ),
+          const SizedBox(height: 10),
+          _buildProfileDetailRow(
+            icon: Icons.email_outlined,
+            label: 'University Email',
+            value: _email.isNotEmpty ? _email : 'Not set',
+            isReadOnly: true,
+          ),
+          const SizedBox(height: 10),
+          _buildProfileDetailRow(
+            icon: Icons.phone_outlined,
+            label: 'Phone Number',
+            value: _phone.isNotEmpty ? _phone : 'Not set',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileDetailRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    bool isReadOnly = false,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: EasySitColors.primaryTint,
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Icon(icon, size: 18, color: EasySitColors.primary),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: EasySitColors.secondaryText,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: EasySitColors.textPrimary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+        if (isReadOnly) ...[
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.grey.shade300, width: 0.8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  _fullName.isNotEmpty ? _fullName : 'Stack Holder',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: EasySitColors.textPrimary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                Icon(
+                  Icons.lock_outline_rounded,
+                  size: 11,
+                  color: Colors.grey.shade600,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(width: 3),
                 Text(
-                  _email.isNotEmpty ? _email : 'holder-ct22000@stu.kln.ac.lk',
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    color: EasySitColors.secondaryText,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: EasySitColors.primaryTint,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.school_rounded,
-                        size: 16,
-                        color: EasySitColors.primary,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        _userType.isNotEmpty ? _userType : 'Student',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: EasySitColors.primary,
-                        ),
-                      ),
-                    ],
+                  'Read-only',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade600,
                   ),
                 ),
               ],
             ),
           ),
         ],
-      ),
+      ],
     );
   }
 
