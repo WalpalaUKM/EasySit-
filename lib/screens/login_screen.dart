@@ -18,6 +18,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _studentNumberController =
       TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final FocusNode _studentNumberFocusNode = FocusNode();
+  final FocusNode _passwordFocusNode = FocusNode();
   bool _obscurePassword = true;
   bool _isLoading = false;
   bool _rememberMe = false;
@@ -30,6 +32,8 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _studentNumberController.dispose();
     _passwordController.dispose();
+    _studentNumberFocusNode.dispose();
+    _passwordFocusNode.dispose();
     super.dispose();
   }
 
@@ -224,6 +228,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 // Text Fields
                 TextField(
                   controller: _studentNumberController,
+                  focusNode: _studentNumberFocusNode,
                   style: const TextStyle(color: EasySitColors.mainText),
                   decoration: InputDecoration(
                     labelText: 'Student Number / Email',
@@ -256,6 +261,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: _passwordController,
+                  focusNode: _passwordFocusNode,
                   obscureText: _obscurePassword,
                   style: const TextStyle(color: EasySitColors.mainText),
                   decoration: InputDecoration(

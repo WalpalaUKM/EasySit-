@@ -878,16 +878,48 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     }
     try {
       DateTime now = DateTime.now();
-      await FirebaseFirestore.instance.collection('seats').doc(seatId).update({
-        'status': 'booked',
-        'bookedBy': user.uid,
-        'bookedAt': Timestamp.fromDate(now),
-        'buildingName': buildingName,
-        'roomName': roomName,
-        'floorName': floorName,
-        'pendingBy': FieldValue.delete(),
-        'pendingAt': FieldValue.delete(),
+
+      final bookResult = await FirebaseFirestore.instance.runTransaction<String?>((transaction) async {
+        final seatRef = FirebaseFirestore.instance.collection('seats').doc(seatId);
+        final snapshot = await transaction.get(seatRef);
+        if (!snapshot.exists) {
+          return 'Seat no longer exists.';
+        }
+        final sData = snapshot.data() as Map<String, dynamic>;
+        final currentStatus = sData['status']?.toString() ?? 'available';
+        final isExpired = SeatExpiryService.isSeatExpired(sData);
+
+        if (!isExpired) {
+          if (currentStatus == 'booked') {
+            final bookedBy = sData['bookedBy']?.toString() ?? '';
+            if (bookedBy != user.uid) {
+              return 'Seat is already booked by another student.';
+            }
+          } else if (currentStatus == 'pending') {
+            final pendingBy = sData['pendingBy']?.toString() ?? '';
+            if (pendingBy != user.uid) {
+              return 'Seat is currently reserved by another student.';
+            }
+          }
+        }
+
+        transaction.update(seatRef, {
+          'status': 'booked',
+          'bookedBy': user.uid,
+          'bookedAt': Timestamp.fromDate(now),
+          'buildingName': buildingName,
+          'roomName': roomName,
+          'floorName': floorName,
+          'pendingBy': FieldValue.delete(),
+          'pendingAt': FieldValue.delete(),
+        });
+        return null;
       });
+
+      if (bookResult != null) {
+        _showError(bookResult);
+        return;
+      }
 
       UserStatsService.recordSeatBooked(userId: user.uid, seatId: seatId);
       NotificationService.clearUserNotifications(user.uid);
@@ -939,17 +971,49 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     try {
       DateTime now = DateTime.now();
 
-      // Update seat to 'booked' directly without duplicate seatDoc fetch
-      await FirebaseFirestore.instance.collection('seats').doc(seatId).update({
-        'status': 'booked',
-        'bookedBy': user.uid,
-        'bookedAt': Timestamp.fromDate(now),
-        'pendingBy': FieldValue.delete(),
-        'pendingAt': FieldValue.delete(),
-        'buildingName': buildingName,
-        'roomName': roomName,
-        'floorName': floorName,
+      final confirmResult = await FirebaseFirestore.instance.runTransaction<String?>((transaction) async {
+        final seatRef = FirebaseFirestore.instance.collection('seats').doc(seatId);
+        final snapshot = await transaction.get(seatRef);
+        if (!snapshot.exists) {
+          return 'Seat no longer exists.';
+        }
+        final sData = snapshot.data() as Map<String, dynamic>;
+        final currentStatus = sData['status']?.toString() ?? 'available';
+        final isExpired = SeatExpiryService.isSeatExpired(sData);
+
+        if (isExpired) {
+          return 'Your reservation has expired.';
+        }
+
+        if (currentStatus == 'booked') {
+          final bookedBy = sData['bookedBy']?.toString() ?? '';
+          if (bookedBy != user.uid) {
+            return 'Seat is already booked by another student.';
+          }
+        } else if (currentStatus == 'pending') {
+          final pendingBy = sData['pendingBy']?.toString() ?? '';
+          if (pendingBy != user.uid) {
+            return 'This reservation belongs to another student.';
+          }
+        }
+
+        transaction.update(seatRef, {
+          'status': 'booked',
+          'bookedBy': user.uid,
+          'bookedAt': Timestamp.fromDate(now),
+          'pendingBy': FieldValue.delete(),
+          'pendingAt': FieldValue.delete(),
+          'buildingName': buildingName,
+          'roomName': roomName,
+          'floorName': floorName,
+        });
+        return null;
       });
+
+      if (confirmResult != null) {
+        _showError(confirmResult);
+        return;
+      }
 
       UserStatsService.recordSeatBooked(userId: user.uid, seatId: seatId);
       NotificationService.clearUserNotifications(user.uid);

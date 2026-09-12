@@ -85,9 +85,15 @@ class SeatExpiryService {
     _inFlightReleases.add(seatId);
 
     try {
-      final String status = seatData['status']?.toString() ?? '';
-      final String? bookedBy = seatData['bookedBy'] as String?;
-      final Timestamp? bookedAt = seatData['bookedAt'] as Timestamp?;
+      // Re-fetch fresh document from Firestore to ensure we never release a newly booked seat
+      final freshSnap = await _firestore.collection('seats').doc(seatId).get();
+      if (!freshSnap.exists) return false;
+      final freshData = freshSnap.data() as Map<String, dynamic>;
+      if (!isSeatExpired(freshData)) return false;
+
+      final String status = freshData['status']?.toString() ?? '';
+      final String? bookedBy = freshData['bookedBy'] as String?;
+      final Timestamp? bookedAt = freshData['bookedAt'] as Timestamp?;
 
       if (status == 'booked' && bookedBy != null && bookedBy.isNotEmpty) {
         // Record completed study stats for the user whose session ended

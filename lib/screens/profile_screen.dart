@@ -80,8 +80,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _activeBooking = ProfileScreen.cachedBooking;
-    _bookingStatus = ProfileScreen.cachedStatus;
+    final cached = ProfileScreen.cachedBooking;
+    final cachedOwner = cached?['bookedBy'] ?? cached?['pendingBy'];
+    if (cached != null && (_user == null || cachedOwner == null || cachedOwner == _user.uid)) {
+      _activeBooking = cached;
+      _bookingStatus = ProfileScreen.cachedStatus;
+    } else {
+      _activeBooking = null;
+      _bookingStatus = '';
+    }
     _loadUserData();
     _listenActiveBooking();
     _startCountdownTimer();
@@ -467,6 +474,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
     );
     if (confirm != true) return;
+    ProfileScreen.cachedBooking = null;
+    ProfileScreen.cachedStatus = '';
     await AuthPersistenceService.clear();
     await FirebaseAuth.instance.signOut();
     if (mounted) {

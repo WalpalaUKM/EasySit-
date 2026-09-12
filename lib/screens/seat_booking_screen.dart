@@ -421,39 +421,61 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
     if (confirm != true) return;
 
     try {
-      final seatSnap = await _firestore.collection('seats').doc(seatId).get();
-      if (seatSnap.exists) {
-        final sData = seatSnap.data() as Map<String, dynamic>;
+      final now = DateTime.now();
+
+      final reserveResult = await _firestore.runTransaction<String?>((transaction) async {
+        final seatRef = _firestore.collection('seats').doc(seatId);
+        final snapshot = await transaction.get(seatRef);
+        if (!snapshot.exists) {
+          return 'Seat no longer exists.';
+        }
+        final sData = snapshot.data() as Map<String, dynamic>;
         if ((sData['status'] ?? '') == 'unavailable' ||
             sData['isBuildingBlocked'] == true ||
             sData['isFloorBlocked'] == true ||
             sData['isRoomBlocked'] == true) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Cannot book seat. Location is closed for ${sData['blockedReason'] ?? 'maintenance'}.',
-                ),
-                backgroundColor: EasySitColors.errorFg,
-              ),
-            );
-          }
-          return;
+          return 'Cannot book seat. Location is closed for ${sData['blockedReason'] ?? 'maintenance'}.';
         }
-      }
 
-      final now = DateTime.now();
-      // Transition seat to 'pending' in Firestore with complete location hierarchy
-      await _firestore.collection('seats').doc(seatId).update({
-        'status': 'pending',
-        'pendingBy': user.uid,
-        'pendingAt': Timestamp.fromDate(now),
-        'buildingName': widget.buildingName,
-        'roomName': widget.roomName,
-        'floorName': widget.floorName,
-        'bookedBy': FieldValue.delete(),
-        'bookedAt': FieldValue.delete(),
+        final currentStatus = sData['status']?.toString() ?? 'available';
+        final isExpired = SeatExpiryService.isSeatExpired(sData);
+
+        if (!isExpired) {
+          if (currentStatus == 'booked') {
+            return 'Seat is already booked by another student.';
+          } else if (currentStatus == 'pending') {
+            final pendingBy = sData['pendingBy']?.toString() ?? '';
+            if (pendingBy != user.uid) {
+              return 'Seat is already reserved by another student.';
+            }
+          }
+        }
+
+        // Transition seat to 'pending' atomically
+        transaction.update(seatRef, {
+          'status': 'pending',
+          'pendingBy': user.uid,
+          'pendingAt': Timestamp.fromDate(now),
+          'buildingName': widget.buildingName,
+          'roomName': widget.roomName,
+          'floorName': widget.floorName,
+          'bookedBy': FieldValue.delete(),
+          'bookedAt': FieldValue.delete(),
+        });
+        return null;
       });
+
+      if (reserveResult != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(reserveResult),
+              backgroundColor: EasySitColors.errorFg,
+            ),
+          );
+        }
+        return;
+      }
 
       final pendingSessionData = {
         'docId': seatId,
@@ -612,6 +634,18 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
     if (confirm != true) return;
 
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final seatSnap = await _firestore.collection('seats').doc(seatId).get();
+        if (seatSnap.exists) {
+          final sData = seatSnap.data();
+          if (sData?['pendingBy'] != user.uid) {
+            // Seat is not reserved by this student; do not touch
+            return;
+          }
+        }
+      }
+
       await _firestore.collection('seats').doc(seatId).update({
         'status': 'available',
         'pendingBy': FieldValue.delete(),

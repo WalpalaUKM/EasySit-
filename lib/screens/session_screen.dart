@@ -69,7 +69,9 @@ class _SessionScreenState extends State<SessionScreen>
     // Fast initial load from passed props or cache
     final initial = widget.initialBooking ?? ProfileScreen.cachedBooking;
     final initialStatus = widget.initialStatus ?? ProfileScreen.cachedStatus;
+    final String? ownerUid = initial?['bookedBy'] ?? initial?['pendingBy'];
     if (initial != null &&
+        (_user == null || ownerUid == null || ownerUid == _user.uid) &&
         (initialStatus == 'booked' || initialStatus == 'pending')) {
       _activeBooking = Map<String, dynamic>.from(initial);
       _bookingStatus = initialStatus;
@@ -379,6 +381,27 @@ class _SessionScreenState extends State<SessionScreen>
   Future<void> _releaseSeat(String seatId) async {
     _timer?.cancel();
     try {
+      if (_user != null) {
+        final seatSnap = await _firestore.collection('seats').doc(seatId).get();
+        if (seatSnap.exists) {
+          final sData = seatSnap.data();
+          final bookedBy = sData?['bookedBy']?.toString() ?? '';
+          final pendingBy = sData?['pendingBy']?.toString() ?? '';
+          if (bookedBy != _user.uid && pendingBy != _user.uid) {
+            // Seat belongs to another student, do not touch Firestore
+            if (mounted) {
+              setState(() {
+                _activeBooking = null;
+                _bookingStatus = '';
+                ProfileScreen.cachedBooking = null;
+                ProfileScreen.cachedStatus = '';
+              });
+            }
+            return;
+          }
+        }
+      }
+
       // Record completed session stats if active
       if (_user != null && _bookingStatus == 'booked') {
         DateTime? bookedAt;
@@ -538,6 +561,26 @@ class _SessionScreenState extends State<SessionScreen>
   /// 3. Deletes bookedBy, bookedAt, pendingBy, pendingAt fields.
   /// 4. Shows an alert banner to inform student the session expired.
   Future<void> _autoReleaseSeat(String seatId) async {
+    if (_user != null) {
+      final seatSnap = await _firestore.collection('seats').doc(seatId).get();
+      if (seatSnap.exists) {
+        final sData = seatSnap.data();
+        if (sData?['bookedBy'] != _user.uid) {
+          // Belongs to another student; do not release
+          _timer?.cancel();
+          if (mounted) {
+            setState(() {
+              _activeBooking = null;
+              _bookingStatus = '';
+              ProfileScreen.cachedBooking = null;
+              ProfileScreen.cachedStatus = '';
+            });
+          }
+          return;
+        }
+      }
+    }
+
     if (_user != null && _bookingStatus == 'booked') {
       DateTime? bookedAt;
       if (_activeBooking?['bookedAt'] is Timestamp) {
@@ -581,6 +624,25 @@ class _SessionScreenState extends State<SessionScreen>
   /// Triggered automatically when the 10-minute pending reservation countdown reaches 0:
   /// Resets seat to 'available' and shows ReservationExpiredDialog to the student.
   Future<void> _releaseExpired(String seatId) async {
+    if (_user != null) {
+      final seatSnap = await _firestore.collection('seats').doc(seatId).get();
+      if (seatSnap.exists) {
+        final sData = seatSnap.data();
+        if (sData?['pendingBy'] != _user.uid) {
+          // Belongs to another student; do not release
+          if (mounted) {
+            setState(() {
+              _activeBooking = null;
+              _bookingStatus = '';
+              ProfileScreen.cachedBooking = null;
+              ProfileScreen.cachedStatus = '';
+            });
+          }
+          return;
+        }
+      }
+    }
+
     await _firestore.collection('seats').doc(seatId).update({
       'status': 'available',
       'pendingBy': FieldValue.delete(),

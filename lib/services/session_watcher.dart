@@ -302,20 +302,22 @@ class SessionWatcher {
   /// 4. Cleans up pending notifications.
   static Future<void> _releaseSeat(String seatId) async {
     final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
     try {
-      if (user != null) {
-        DocumentSnapshot seatSnap = await FirebaseFirestore.instance.collection('seats').doc(seatId).get();
-        if (seatSnap.exists) {
-          final sData = seatSnap.data() as Map<String, dynamic>?;
-          if (sData?['status'] == 'booked') {
-            UserStatsService.recordCompletedSession(
-              userId: user.uid,
-              seatId: seatId,
-              bookedAt: (sData?['bookedAt'] as Timestamp?)?.toDate(),
-              fallbackMinutes: 120,
-            );
-          }
-        }
+      DocumentSnapshot seatSnap = await FirebaseFirestore.instance.collection('seats').doc(seatId).get();
+      if (!seatSnap.exists) return;
+      final sData = seatSnap.data() as Map<String, dynamic>?;
+      if (sData?['bookedBy'] != user.uid) {
+        // Seat belongs to another student, do not release
+        return;
+      }
+      if (sData?['status'] == 'booked') {
+        UserStatsService.recordCompletedSession(
+          userId: user.uid,
+          seatId: seatId,
+          bookedAt: (sData?['bookedAt'] as Timestamp?)?.toDate(),
+          fallbackMinutes: 120,
+        );
       }
       await FirebaseFirestore.instance.collection('seats').doc(seatId).update({
         'status': 'available',
@@ -324,9 +326,7 @@ class SessionWatcher {
         'pendingBy': FieldValue.delete(),
         'pendingAt': FieldValue.delete(),
       });
-      if (user != null) {
-        await NotificationService.clearUserNotifications(user.uid);
-      }
+      await NotificationService.clearUserNotifications(user.uid);
     } catch (_) {}
   }
 
@@ -334,15 +334,21 @@ class SessionWatcher {
   /// Resets pending reservation back to 'available' when 10-minute grace period expires without QR scan.
   static Future<void> _releasePendingSeat(String seatId) async {
     final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
     try {
+      DocumentSnapshot seatSnap = await FirebaseFirestore.instance.collection('seats').doc(seatId).get();
+      if (!seatSnap.exists) return;
+      final sData = seatSnap.data() as Map<String, dynamic>?;
+      if (sData?['pendingBy'] != user.uid) {
+        // Seat belongs to another student, do not release
+        return;
+      }
       await FirebaseFirestore.instance.collection('seats').doc(seatId).update({
         'status': 'available',
         'pendingBy': FieldValue.delete(),
         'pendingAt': FieldValue.delete(),
       });
-      if (user != null) {
-        await NotificationService.clearUserNotifications(user.uid, title: 'Reservation Expiring');
-      }
+      await NotificationService.clearUserNotifications(user.uid, title: 'Reservation Expiring');
     } catch (_) {}
   }
 }
