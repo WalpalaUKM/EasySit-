@@ -21,6 +21,43 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _isLoading = false;
   bool _rememberMe = false;
+  int _prevInputLength = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _studentNumberController.addListener(_onStudentNumberChanged);
+  }
+
+  // ============================================================================
+  // [UNIVERSITY EMAIL AUTOFILL ON '@' SYMBOL]
+  // ============================================================================
+  /// Automatically completes "stu.kln.ac.lk" when the student enters '@'
+  /// in the identifier field.
+  void _onStudentNumberChanged() {
+    final text = _studentNumberController.text;
+    if (text.length > _prevInputLength && text.endsWith('@')) {
+      final prefix = text.substring(0, text.length - 1);
+      if (!prefix.contains('@') && prefix.isNotEmpty) {
+        final autofilled = '${text}stu.kln.ac.lk';
+        _prevInputLength = autofilled.length;
+        _studentNumberController.value = TextEditingValue(
+          text: autofilled,
+          selection: TextSelection.collapsed(offset: autofilled.length),
+        );
+        return;
+      }
+    }
+    _prevInputLength = text.length;
+  }
+
+  @override
+  void dispose() {
+    _studentNumberController.removeListener(_onStudentNumberChanged);
+    _studentNumberController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   // ============================================================================
   // [AUTHENTICATION IDENTIFIER RESOLUTION & VALIDATION]
@@ -76,24 +113,34 @@ class _LoginScreenState extends State<LoginScreen> {
           password: password,
         );
       } on FirebaseAuthException catch (authEx) {
-        if (authEx.code == 'user-not-found' && !input.contains('@')) {
-          final query = await FirebaseFirestore.instance
-              .collection('users')
-              .where('studentId', isEqualTo: input)
-              .limit(1)
-              .get();
+        if (authEx.code == 'user-not-found' ||
+            authEx.code == 'invalid-credential') {
+          QuerySnapshot<Map<String, dynamic>> query;
+          if (input.contains('@') && !input.toLowerCase().startsWith('admin@')) {
+            query = await FirebaseFirestore.instance
+                .collection('users')
+                .where('email', isEqualTo: input)
+                .limit(1)
+                .get();
+          } else {
+            query = await FirebaseFirestore.instance
+                .collection('users')
+                .where('studentId', isEqualTo: input)
+                .limit(1)
+                .get();
+          }
+
           if (query.docs.isNotEmpty) {
-            final realEmail =
-                (query.docs.first.data()['email'] ?? '').toString().trim();
-            if (realEmail.isNotEmpty && realEmail.contains('@')) {
-              userCredential =
-                  await FirebaseAuth.instance.signInWithEmailAndPassword(
-                email: realEmail,
-                password: password,
-              );
-            } else {
-              rethrow;
-            }
+            final data = query.docs.first.data();
+            final realStudentId =
+                (data['studentId'] ?? '').toString().trim();
+            final authEmail = _studentNumberToEmail(
+                realStudentId.isNotEmpty ? realStudentId : input);
+            userCredential =
+                await FirebaseAuth.instance.signInWithEmailAndPassword(
+              email: authEmail,
+              password: password,
+            );
           } else {
             rethrow;
           }
@@ -205,9 +252,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: _studentNumberController,
                   style: const TextStyle(color: EasySitColors.mainText),
                   decoration: InputDecoration(
-                    labelText: 'Student Number',
+                    labelText: 'Student Number / Email',
                     labelStyle: const TextStyle(color: EasySitColors.bodyText),
-                    hintText: 'e.g. CT20xxxxx',
+                    hintText: 'e.g. CT23001 or university email',
                     hintStyle: const TextStyle(color: EasySitColors.secondaryText),
                     filled: true,
                     fillColor: EasySitColors.surface,
