@@ -18,6 +18,13 @@ class SessionWatcher {
   static final Set<String> _pendingNotifSent = {};
   static DateTime? _lastKnownBookedAt;
 
+  // ============================================================================
+  // BACKGROUND REAL-TIME SESSION WATCHER (INTERVALS & TIMING UNITS)
+  // ============================================================================
+  /// Starts the background periodic timer.
+  /// Unit: Seconds. Runs every 3 seconds (const Duration(seconds: 3)) to check
+  /// active user bookings and pending reservations in Firestore.
+  /// How to change safely: Modify Duration(seconds: 3) to e.g. 5 seconds if less frequency is desired.
   static void start() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 3), (_) => _check());
@@ -35,12 +42,14 @@ class SessionWatcher {
     _lastKnownBookedAt = null;
   }
 
+  /// Core background validation function for the currently logged-in student.
   static Future<void> _check() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
     try {
       final now = DateTime.now();
+      // Query currently active booked seat for this student
       final bookedSeats = await FirebaseFirestore.instance
           .collection('seats')
           .where('bookedBy', isEqualTo: user.uid)
@@ -51,26 +60,34 @@ class SessionWatcher {
         final bookedAt = data['bookedAt'] as Timestamp?;
         if (bookedAt == null) continue;
 
-        final expiresAt = bookedAt.toDate().add(const Duration(minutes: 2));
-        final secs = expiresAt.difference(now).inSeconds;
+        // [BOOKED SESSION DURATION]: 2 hours (120 minutes) (unit: minutes).
+        // How to change safely: Change Duration(hours: 2) to match SeatExpiryService.bookedDurationMinutes.
+        final expiresAt = bookedAt.toDate().add(const Duration(hours: 2));
+        final secs = expiresAt.difference(now).inSeconds; // unit: seconds
 
         if (_lastKnownBookedAt != bookedAt.toDate()) {
           _bookedNotifSent.clear();
           _lastKnownBookedAt = bookedAt.toDate();
         }
 
-        if (secs <= 60 && secs > 0 && !_bookedNotifSent.contains(doc.id)) {
+        // [EXPIRY WARNING NOTIFICATION]:
+        // Threshold: 600 seconds (unit: seconds, 10 minutes before session ends).
+        // Sends an in-app notification when 10 minutes remain before seat release.
+        if (secs <= 600 && secs > 0 && !_bookedNotifSent.contains(doc.id)) {
           _bookedNotifSent.add(doc.id);
           await FirebaseFirestore.instance.collection('notifications').add({
             'title': 'Session Expiring',
             'message':
-                'Your session at ${data['buildingName'] ?? ''}, ${data['roomName'] ?? ''} (Seat ${data['seatNumber']?.toString() ?? doc.id}) will expire in 1 minute.',
+                'Your session at ${data['buildingName'] ?? ''}, ${data['roomName'] ?? ''} (Seat ${data['seatNumber']?.toString() ?? doc.id}) will expire in 10 minutes.',
             'timestamp': FieldValue.serverTimestamp(),
             'userId': user.uid,
           });
         }
 
-        if (secs <= 45 && secs > 0 && !_dialogShowing) {
+        // [EXPIRY WARNING DIALOG POPUP]:
+        // Threshold: 600 seconds (unit: seconds, 10 minutes before session ends).
+        // Displays the countdown popup asking student to Extend (+2h) or Release seat.
+        if (secs <= 600 && secs > 0 && !_dialogShowing) {
           _dialogShowing = true;
           _currentSeatId = doc.id;
           _showDialog(
@@ -83,6 +100,9 @@ class SessionWatcher {
           );
         }
 
+        // [AUTO-RELEASE ON SESSION EXPIRY]:
+        // Triggered when remaining time drops to 0 seconds or below.
+        // Saves student study statistics and resets seat to available.
         if (secs <= 0 && _dialogShowing && _currentSeatId == doc.id) {
           _dialogShowing = false;
           _currentSeatId = null;
@@ -91,13 +111,15 @@ class SessionWatcher {
             userId: user.uid,
             seatId: doc.id,
             bookedAt: (data['bookedAt'] as Timestamp?)?.toDate(),
-            fallbackMinutes: 2,
+            fallbackMinutes: 120,
           );
           _releaseSeat(doc.id);
         }
       }
 
-      // Check Pending Seats
+      // ========================================================================
+      // PENDING RESERVATION CHECK (GRACE PERIOD)
+      // ========================================================================
       final pendingSeats = await FirebaseFirestore.instance
           .collection('seats')
           .where('pendingBy', isEqualTo: user.uid)
@@ -112,9 +134,14 @@ class SessionWatcher {
         final pendingAt = data['pendingAt'] as Timestamp?;
         if (pendingAt == null) continue;
 
-        final expiresAt = pendingAt.toDate().add(const Duration(minutes: 10));
-        final secs = expiresAt.difference(now).inSeconds;
+        // [PENDING RESERVATION DURATION]: 20 minutes (unit: minutes).
+        // How to change safely: Change Duration(minutes: 20) to match SeatExpiryService.pendingDurationMinutes.
+        final expiresAt = pendingAt.toDate().add(const Duration(minutes: 20));
+        final secs = expiresAt.difference(now).inSeconds; // unit: seconds
 
+        // [PENDING WARNING NOTIFICATION]:
+        // Threshold: 120 seconds (unit: seconds, 2 minutes before reservation expires).
+        // Alerts student to scan QR code before grace period runs out.
         if (secs <= 120 && secs > 0 && !_pendingNotifSent.contains(doc.id)) {
           _pendingNotifSent.add(doc.id);
           await FirebaseFirestore.instance.collection('notifications').add({
@@ -126,6 +153,8 @@ class SessionWatcher {
           });
         }
 
+        // [AUTO-RELEASE ON PENDING EXPIRY]:
+        // Automatically cancels pending reservation when remaining seconds reach 0.
         if (secs <= 0) {
           _releasePendingSeat(doc.id);
         }
@@ -189,12 +218,20 @@ class SessionWatcher {
     });
   }
 
+  // ============================================================================
+  // SESSION EXTENSION & SEAT-RELEASE LOGIC
+  // ============================================================================
+  /// [SESSION EXTENSION LOGIC]:
+  /// Extends the active study session by 2 hours (unit: hours / minutes).
+  /// Calculation: Sets bookedAt = now, so when (bookedAt + 2 hours) is evaluated,
+  /// the new expiration is now + 2 hours.
+  /// How to change safely: Change `effectiveBookedAt` and message string to desired extension.
   static Future<void> _extendSeat(String seatId) async {
     final user = FirebaseAuth.instance.currentUser;
     try {
       final now = DateTime.now();
-      // Set bookedAt so that (bookedAt + 2 minutes) = now + 4 minutes
-      final effectiveBookedAt = now.add(const Duration(minutes: 2));
+      // Set bookedAt so that (bookedAt + 2 hours) = now + 2 hours
+      final effectiveBookedAt = now;
       await FirebaseFirestore.instance.collection('seats').doc(seatId).update({
         'bookedAt': Timestamp.fromDate(effectiveBookedAt),
       });
@@ -202,7 +239,7 @@ class SessionWatcher {
         await NotificationService.clearUserNotifications(user.uid);
         await FirebaseFirestore.instance.collection('notifications').add({
           'title': 'Session Extended',
-          'message': 'Your session has been successfully extended by 4 minutes.',
+          'message': 'Your session has been successfully extended by 2 hours.',
           'timestamp': FieldValue.serverTimestamp(),
           'userId': user.uid,
         });
@@ -210,11 +247,16 @@ class SessionWatcher {
 
       final context = navigatorKey.currentContext;
       if (context != null && context.mounted) {
-        SessionExtendedDialog.show(context, 4);
+        SessionExtendedDialog.show(context, 120);
       }
     } catch (_) {}
   }
 
+  /// [SEAT-RELEASE LOGIC FOR BOOKED SEATS]:
+  /// 1. Records completed study duration into user profile stats.
+  /// 2. Updates Firestore seat status to 'available'.
+  /// 3. Deletes bookedBy, bookedAt, pendingBy, pendingAt fields.
+  /// 4. Cleans up pending notifications.
   static Future<void> _releaseSeat(String seatId) async {
     final user = FirebaseAuth.instance.currentUser;
     try {
@@ -227,7 +269,7 @@ class SessionWatcher {
               userId: user.uid,
               seatId: seatId,
               bookedAt: (sData?['bookedAt'] as Timestamp?)?.toDate(),
-              fallbackMinutes: 2,
+              fallbackMinutes: 120,
             );
           }
         }
@@ -245,6 +287,8 @@ class SessionWatcher {
     } catch (_) {}
   }
 
+  /// [SEAT-RELEASE LOGIC FOR PENDING RESERVATIONS]:
+  /// Resets pending reservation back to 'available' when 10-minute grace period expires without QR scan.
   static Future<void> _releasePendingSeat(String seatId) async {
     final user = FirebaseAuth.instance.currentUser;
     try {

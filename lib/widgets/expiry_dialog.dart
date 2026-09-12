@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
 import '../utils/app_colors.dart';
 
+// ============================================================================
+// [SESSION EXPIRATION WARNING DIALOG (COUNTDOWN & EXTENSION POPUP)]
+// ============================================================================
+/// Triggered by SessionWatcher when 45 seconds remain in a booked study session:
+/// - Countdown: Live 1-second decrement (45s -> 0s) via countdownNotifier (unit: seconds).
+/// - If countdown reaches 0s: SessionWatcher automatically releases the seat.
+/// - Option 1: "Release Seat" -> returns false, immediately releasing seat.
+/// - Option 2: "Extend (+4m)" -> returns true, extending session by 4 minutes (unit: minutes).
 class ExpiryDialog extends StatelessWidget {
   final String seatNumber;
   final String buildingName;
@@ -191,7 +199,7 @@ class ExpiryDialog extends StatelessWidget {
 
             const SizedBox(height: 14),
             const Text(
-              'Would you like to extend your session by 4 minutes or release the seat for other students?',
+              'Would you like to extend your session by 2 hours or release the seat for other students?',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
@@ -247,7 +255,7 @@ class ExpiryDialog extends StatelessWidget {
                         ),
                         SizedBox(width: 6),
                         Text(
-                          'Extend (+4m)',
+                          'Extend (+2h)',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,

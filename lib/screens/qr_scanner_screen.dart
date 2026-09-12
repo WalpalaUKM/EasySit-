@@ -58,11 +58,20 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     }
   }
 
+  // ============================================================================
+  // [QR SCANNING & SEAT CHECK-IN VALIDATION]
+  // ============================================================================
+  /// Handles barcode detection from the camera scanner:
+  /// 1. Validates QR format: Must start with 'SEAT:' prefix followed by seat document ID.
+  /// 2. Validates student authentication: Student must be logged in.
+  /// 3. Validates booking limit: Checks _hasExistingBooking to ensure max 1 active seat per student.
+  /// 4. Checks real-time expiration of scanned seat before performing actions.
   Future<void> _onDetect(BarcodeCapture capture) async {
     if (_isProcessing) return;
 
     final barcode = capture.barcodes.firstOrNull;
     final qrValue = barcode?.rawValue;
+    // Validation: Only accept valid EasySit seat QR codes (e.g. 'SEAT:seat_id_123')
     if (qrValue == null || !qrValue.startsWith('SEAT:')) return;
 
     setState(() => _isProcessing = true);
@@ -78,7 +87,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     }
 
     try {
-      // Concurrently fetch the seat document and check for existing bookings
+      // Concurrently fetch the seat document and validate existing active booking limit
       final results = await Future.wait([
         FirebaseFirestore.instance
             .collection('seats')
@@ -189,11 +198,15 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         );
       } else if (status == 'pending') {
         if (pendingBy == user.uid) {
-          // Check expiration
+          // [PENDING RESERVATION EXPIRATION CHECK]:
+          // Grace Period Duration: 20 minutes (unit: minutes).
+          // If the student arrived after 20 minutes, the reservation is expired.
+          // In that case, seat resets to 'available' and ReservationExpiredDialog is shown.
+          // How to change safely: Modify Duration(minutes: 20) to match SeatExpiryService.pendingDurationMinutes.
           Timestamp? pendingAt = data['pendingAt'] as Timestamp?;
           if (pendingAt != null) {
             DateTime expiresAt = pendingAt.toDate().add(
-              const Duration(minutes: 10),
+              const Duration(minutes: 20),
             );
             if (DateTime.now().isAfter(expiresAt)) {
               await FirebaseFirestore.instance
@@ -427,7 +440,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                         SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'Your session will start immediately for 10 minutes.',
+                            'Your session will start immediately for 2 hours.',
                             style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w600,
@@ -700,7 +713,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                         SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'Your session will start now and last for 10 minutes.',
+                            'Your session will start now and last for 2 hours.',
                             style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w600,
@@ -790,6 +803,12 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     );
   }
 
+  // ============================================================================
+  // [MAXIMUM BOOKING LIMIT VALIDATION (QR SCANNER)]
+  // ============================================================================
+  /// Enforces maximum limit of 1 active seat per student before booking.
+  /// Unit: Seats (Limit = 1).
+  /// Checks both pending and booked collections to prevent double-booking.
   Future<bool> _hasExistingBooking(String uid) async {
     try {
       final results = await Future.wait([
@@ -816,7 +835,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             pData,
           );
         } else {
-          return true;
+          return true; // Already holds a valid pending seat
         }
       }
       if (booked.docs.isNotEmpty) {
@@ -827,15 +846,22 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             bData,
           );
         } else {
-          return true;
+          return true; // Already holds an active booked seat
         }
       }
-      return false;
+      return false; // Free to book
     } catch (_) {
       return false;
     }
   }
 
+  // ============================================================================
+  // [DIRECT BOOKING LOGIC]
+  // ============================================================================
+  /// Direct booking when student arrives at an available seat and scans QR:
+  /// - Status: 'available' -> 'booked'.
+  /// - Timestamp: 'bookedAt' = current timestamp.
+  /// - Allotted Duration: 2 minutes (test duration).
   Future<void> _bookSeatDirect(
     String seatId,
     String seatNumber,
@@ -888,7 +914,13 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     }
   }
 
-  // 🟢 Confirm booking from pending reservation
+  // ============================================================================
+  // [CONFIRM RESERVATION CHECK-IN]
+  // ============================================================================
+  /// Converts a student's pending reservation into an active booked study session
+  /// upon physical arrival and QR code scan at the seat:
+  /// - Status: 'pending' -> 'booked'.
+  /// - Allotted Duration: 2 minutes (test duration).
   Future<void> _confirmBookingAndNavigate(
     String seatId,
     String seatNumber,

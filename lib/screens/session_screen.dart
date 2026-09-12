@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/notification_service.dart';
 import '../services/user_stats_service.dart';
+import '../services/seat_expiry_service.dart';
 import '../widgets/app_bottom_nav.dart';
 import 'student_home_screen.dart';
 import 'qr_scanner_screen.dart';
@@ -68,17 +69,24 @@ class _SessionScreenState extends State<SessionScreen>
     // Fast initial load from passed props or cache
     final initial = widget.initialBooking ?? ProfileScreen.cachedBooking;
     final initialStatus = widget.initialStatus ?? ProfileScreen.cachedStatus;
-    if (initial != null && (initialStatus == 'booked' || initialStatus == 'pending')) {
+    if (initial != null &&
+        (initialStatus == 'booked' || initialStatus == 'pending')) {
       _activeBooking = Map<String, dynamic>.from(initial);
       _bookingStatus = initialStatus;
       _isLoading = false;
       if (initialStatus == 'booked') {
         Timestamp? bookedAt = _activeBooking!['bookedAt'] as Timestamp?;
-        DateTime sessionEnd = bookedAt != null
-            ? bookedAt.toDate().add(const Duration(minutes: 2))
-            : DateTime.now().add(const Duration(minutes: 2));
+        // [BOOKED SESSION EXPIRATION]:
+        // Duration: 2 hours (120 minutes) (unit: minutes).
+        // How to change safely: Change Duration(hours: 2) to desired duration (e.g. 60).
+        DateTime sessionEnd =
+            bookedAt != null
+                ? bookedAt.toDate().add(const Duration(hours: 2))
+                : DateTime.now().add(const Duration(hours: 2));
         _startTimerForBooked(
-          _activeBooking!['seatId']?.toString() ?? _activeBooking!['docId']?.toString() ?? '',
+          _activeBooking!['seatId']?.toString() ??
+              _activeBooking!['docId']?.toString() ??
+              '',
           sessionEnd,
           _activeBooking!['seatNumber']?.toString() ?? '?',
           _activeBooking!['buildingName']?.toString() ?? '',
@@ -86,11 +94,17 @@ class _SessionScreenState extends State<SessionScreen>
         );
       } else if (initialStatus == 'pending') {
         Timestamp? pendingAt = _activeBooking!['pendingAt'] as Timestamp?;
-        DateTime expiresAt = pendingAt != null
-            ? pendingAt.toDate().add(const Duration(minutes: 10))
-            : DateTime.now().add(const Duration(minutes: 10));
+        // [PENDING RESERVATION EXPIRATION / GRACE PERIOD]:
+        // Duration: 20 minutes (unit: minutes). Countdown to scan QR at seat.
+        // How to change safely: Change Duration(minutes: 20) to desired grace period (e.g. 15).
+        DateTime expiresAt =
+            pendingAt != null
+                ? pendingAt.toDate().add(const Duration(minutes: 20))
+                : DateTime.now().add(const Duration(minutes: 20));
         _startTimerForPending(
-          _activeBooking!['seatId']?.toString() ?? _activeBooking!['docId']?.toString() ?? '',
+          _activeBooking!['seatId']?.toString() ??
+              _activeBooking!['docId']?.toString() ??
+              '',
           _activeBooking!['seatNumber']?.toString() ?? '?',
           expiresAt,
         );
@@ -157,20 +171,17 @@ class _SessionScreenState extends State<SessionScreen>
     String seatNumber = data['seatNumber']?.toString() ?? '?';
     String roomName = data['roomName'] ?? _activeBooking?['roomName'] ?? '';
     String floorName = data['floorName'] ?? _activeBooking?['floorName'] ?? '';
-    String buildingName = data['buildingName'] ?? _activeBooking?['buildingName'] ?? '';
+    String buildingName =
+        data['buildingName'] ?? _activeBooking?['buildingName'] ?? '';
     String zone = data['zone'] ?? _activeBooking?['zone'] ?? 'Quiet Zone';
 
     if (status == 'pending') {
       Timestamp? pendingAt = data['pendingAt'] as Timestamp?;
       if (pendingAt != null) {
         DateTime expiresAt = pendingAt.toDate().add(
-          const Duration(minutes: 10),
+          const Duration(minutes: 20),
         );
-        _startTimerForPending(
-          doc.id,
-          seatNumber,
-          expiresAt,
-        );
+        _startTimerForPending(doc.id, seatNumber, expiresAt);
       }
       setState(() {
         _activeBooking = {
@@ -193,9 +204,9 @@ class _SessionScreenState extends State<SessionScreen>
       Timestamp? bookedAt = data['bookedAt'] as Timestamp?;
       DateTime sessionEnd;
       if (bookedAt != null) {
-        sessionEnd = bookedAt.toDate().add(const Duration(minutes: 2));
+        sessionEnd = bookedAt.toDate().add(const Duration(hours: 2));
       } else {
-        sessionEnd = DateTime.now().add(const Duration(minutes: 2));
+        sessionEnd = DateTime.now().add(const Duration(hours: 2));
       }
       _startTimerForBooked(
         doc.id,
@@ -223,40 +234,94 @@ class _SessionScreenState extends State<SessionScreen>
       });
     }
 
-    String roomId = data['roomId'] ?? '';
-    if (roomId.isNotEmpty && (roomName.isEmpty || buildingName.isEmpty)) {
-      DocumentSnapshot roomDoc =
-          await _firestore.collection('rooms').doc(roomId).get();
-      var roomData = roomDoc.data() as Map<String, dynamic>?;
-      if (roomName.isEmpty) roomName = roomData?['name'] ?? 'Room';
-      String floorId = roomData?['floorId'] ?? '';
-      if (floorId.isNotEmpty) {
-        DocumentSnapshot floorDoc =
-            await _firestore.collection('floors').doc(floorId).get();
-        var floorData = floorDoc.data() as Map<String, dynamic>?;
-        if (floorName.isEmpty) floorName = floorData?['name'] ?? 'Floor';
-        String buildingId = floorData?['buildingId'] ?? '';
-        if (buildingId.isNotEmpty && buildingName.isEmpty) {
-          DocumentSnapshot buildingDoc =
-              await _firestore.collection('buildings').doc(buildingId).get();
-          var buildingData = buildingDoc.data() as Map<String, dynamic>?;
-          buildingName = buildingData?['name'] ?? 'Building';
-        }
+    String roomId = (data['roomId'] ?? '').toString().trim();
+    if (roomName.isEmpty || floorName.isEmpty || buildingName.isEmpty) {
+      if (roomId.isNotEmpty) {
+        try {
+          DocumentSnapshot roomDoc =
+              await _firestore.collection('rooms').doc(roomId).get();
+          if (roomDoc.exists) {
+            var roomData = roomDoc.data() as Map<String, dynamic>?;
+            if (roomName.isEmpty) roomName = (roomData?['name'] ?? '').toString().trim();
+            String floorId = (roomData?['floorId'] ?? '').toString().trim();
+            if (floorId.isNotEmpty) {
+              DocumentSnapshot floorDoc =
+                  await _firestore.collection('floors').doc(floorId).get();
+              if (floorDoc.exists) {
+                var floorData = floorDoc.data() as Map<String, dynamic>?;
+                if (floorName.isEmpty) floorName = (floorData?['name'] ?? '').toString().trim();
+                String buildingId = (floorData?['buildingId'] ?? '').toString().trim();
+                if (buildingId.isNotEmpty && buildingName.isEmpty) {
+                  DocumentSnapshot buildingDoc =
+                      await _firestore.collection('buildings').doc(buildingId).get();
+                  if (buildingDoc.exists) {
+                    var buildingData = buildingDoc.data() as Map<String, dynamic>?;
+                    if (buildingName.isEmpty) buildingName = (buildingData?['name'] ?? '').toString().trim();
+                  }
+                }
+              }
+            }
+          }
+        } catch (_) {}
       }
 
-      if (mounted) {
-        setState(() {
-          if (_activeBooking != null) {
-            _activeBooking!['roomName'] = roomName;
-            _activeBooking!['floorName'] = floorName;
-            _activeBooking!['buildingName'] = buildingName;
-            ProfileScreen.cachedBooking = _activeBooking;
+      // If roomId wasn't directly on the seat but roomName is present, lookup room to resolve floor and building
+      if ((floorName.isEmpty || buildingName.isEmpty) && roomName.isNotEmpty) {
+        try {
+          QuerySnapshot rSnap = await _firestore
+              .collection('rooms')
+              .where('name', isEqualTo: roomName)
+              .limit(1)
+              .get();
+          if (rSnap.docs.isNotEmpty) {
+            var rData = rSnap.docs.first.data() as Map<String, dynamic>;
+            String fId = (rData['floorId'] ?? '').toString().trim();
+            if (fId.isNotEmpty) {
+              DocumentSnapshot fDoc =
+                  await _firestore.collection('floors').doc(fId).get();
+              if (fDoc.exists) {
+                var fData = fDoc.data() as Map<String, dynamic>?;
+                if (floorName.isEmpty) floorName = (fData?['name'] ?? '').toString().trim();
+                String bId = (fData?['buildingId'] ?? '').toString().trim();
+                if (bId.isNotEmpty && buildingName.isEmpty) {
+                  DocumentSnapshot bDoc =
+                      await _firestore.collection('buildings').doc(bId).get();
+                  if (bDoc.exists) {
+                    var bData = bDoc.data() as Map<String, dynamic>?;
+                    if (buildingName.isEmpty) buildingName = (bData?['name'] ?? '').toString().trim();
+                  }
+                }
+              }
+            }
           }
+        } catch (_) {}
+      }
+
+      if (mounted && _activeBooking != null) {
+        setState(() {
+          _activeBooking!['roomName'] = roomName;
+          _activeBooking!['floorName'] = floorName;
+          _activeBooking!['buildingName'] = buildingName;
+          ProfileScreen.cachedBooking = _activeBooking;
         });
+      }
+
+      // Automatically persist discovered location fields to seat document so future loads are instantaneous
+      if (floorName.isNotEmpty || roomName.isNotEmpty || buildingName.isNotEmpty) {
+        _firestore.collection('seats').doc(doc.id).update({
+          if (floorName.isNotEmpty) 'floorName': floorName,
+          if (roomName.isNotEmpty) 'roomName': roomName,
+          if (buildingName.isNotEmpty) 'buildingName': buildingName,
+        }).catchError((_) {});
       }
     }
   }
 
+  // ============================================================================
+  // [COUNTDOWN TICKERS & REAL-TIME DISPLAY]
+  // ============================================================================
+  /// Starts 1-second interval countdown ticker for pending reservations (unit: seconds).
+  /// Decrements remaining seconds until 0, then automatically triggers _releaseExpired.
   void _startTimerForPending(
     String seatId,
     String seatNumber,
@@ -277,6 +342,8 @@ class _SessionScreenState extends State<SessionScreen>
     );
   }
 
+  /// Starts 1-second interval countdown ticker for active booked sessions (unit: seconds).
+  /// Decrements remaining seconds until 0, then automatically triggers _autoReleaseSeat.
   void _startTimerForBooked(
     String seatId,
     DateTime sessionEnd,
@@ -303,6 +370,14 @@ class _SessionScreenState extends State<SessionScreen>
     );
   }
 
+  // ============================================================================
+  // [MANUAL SEAT RELEASE / END SESSION LOGIC]
+  // ============================================================================
+  /// Triggered when the student taps the 'End Session' button:
+  /// 1. Stops the countdown ticker.
+  /// 2. Records completed study duration into user profile stats.
+  /// 3. Resets seat status to 'available' in Firestore.
+  /// 4. Clears active notifications.
   Future<void> _releaseSeat(String seatId) async {
     _timer?.cancel();
     try {
@@ -420,7 +495,11 @@ class _SessionScreenState extends State<SessionScreen>
                           child: const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.check, color: EasySitColors.onPrimary, size: 20),
+                              Icon(
+                                Icons.check,
+                                color: EasySitColors.onPrimary,
+                                size: 20,
+                              ),
                               SizedBox(width: 8),
                               Text(
                                 'OK',
@@ -452,6 +531,14 @@ class _SessionScreenState extends State<SessionScreen>
     }
   }
 
+  // ============================================================================
+  // [AUTO-RELEASE LOGIC ON EXPIRATION]
+  // ============================================================================
+  /// Triggered automatically when the active booked study session countdown reaches 0:
+  /// 1. Saves student's study duration to their profile statistics.
+  /// 2. Resets Firestore seat document status to 'available'.
+  /// 3. Deletes bookedBy, bookedAt, pendingBy, pendingAt fields.
+  /// 4. Shows an alert banner to inform student the session expired.
   Future<void> _autoReleaseSeat(String seatId) async {
     if (_user != null && _bookingStatus == 'booked') {
       DateTime? bookedAt;
@@ -462,7 +549,7 @@ class _SessionScreenState extends State<SessionScreen>
         userId: _user.uid,
         seatId: seatId,
         bookedAt: bookedAt,
-        fallbackMinutes: 10,
+        fallbackMinutes: 120,
       );
     }
     await _firestore.collection('seats').doc(seatId).update({
@@ -493,6 +580,8 @@ class _SessionScreenState extends State<SessionScreen>
     }
   }
 
+  /// Triggered automatically when the 10-minute pending reservation countdown reaches 0:
+  /// Resets seat to 'available' and shows ReservationExpiredDialog to the student.
   Future<void> _releaseExpired(String seatId) async {
     await _firestore.collection('seats').doc(seatId).update({
       'status': 'available',
@@ -579,7 +668,9 @@ class _SessionScreenState extends State<SessionScreen>
                           onPressed: () => Navigator.of(ctx).pop(false),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            side: const BorderSide(color: EasySitColors.divider),
+                            side: const BorderSide(
+                              color: EasySitColors.divider,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
                             ),
@@ -639,6 +730,12 @@ class _SessionScreenState extends State<SessionScreen>
   }
 
   String _formatTime(int seconds) {
+    if (seconds >= 3600) {
+      int h = seconds ~/ 3600;
+      int m = (seconds % 3600) ~/ 60;
+      int s = seconds % 60;
+      return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    }
     int m = seconds ~/ 60;
     int s = seconds % 60;
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
@@ -719,18 +816,13 @@ class _SessionScreenState extends State<SessionScreen>
             ),
           ],
         ),
-        actions: const [
-          NotificationBellButton(),
-          SizedBox(width: 20),
-        ],
+        actions: const [NotificationBellButton(), SizedBox(width: 20)],
       ),
       body: _buildBody(),
-      bottomNavigationBar: widget.isTab
-          ? null
-          : AppBottomNav(
-              currentIndex: 2,
-              onTabSelected: _onNavTab,
-            ),
+      bottomNavigationBar:
+          widget.isTab
+              ? null
+              : AppBottomNav(currentIndex: 2, onTabSelected: _onNavTab),
     );
 
     if (widget.isTab) {
@@ -767,7 +859,11 @@ class _SessionScreenState extends State<SessionScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.event_seat, size: 64, color: EasySitColors.secondaryText),
+            Icon(
+              Icons.event_seat,
+              size: 64,
+              color: EasySitColors.secondaryText,
+            ),
             SizedBox(height: 16),
             Text(
               'No Active Session',
@@ -791,25 +887,20 @@ class _SessionScreenState extends State<SessionScreen>
     bool isBooked = _bookingStatus == 'booked';
 
     // Yellow-mix-orange for pending state, Green for active state
-    final Color primaryThemeColor = isPending
-        ? EasySitColors.pendingPrimary
-        : EasySitColors.successFg;
+    final Color primaryThemeColor =
+        isPending ? EasySitColors.pendingPrimary : EasySitColors.successFg;
 
-    final Color darkTextColor = isPending
-        ? EasySitColors.pendingDark
-        : EasySitColors.successFg;
+    final Color darkTextColor =
+        isPending ? EasySitColors.pendingDark : EasySitColors.successFg;
 
-    final Color softBgColor = isPending
-        ? EasySitColors.pendingBg
-        : EasySitColors.successBg;
+    final Color softBgColor =
+        isPending ? EasySitColors.pendingBg : EasySitColors.successBg;
 
-    final Color badgeBgColor = isPending
-        ? EasySitColors.pendingBadge
-        : EasySitColors.successBorder;
+    final Color badgeBgColor =
+        isPending ? EasySitColors.pendingBadge : EasySitColors.successBorder;
 
-    final Color accentColor = isPending
-        ? EasySitColors.pendingDark
-        : EasySitColors.successFg;
+    final Color accentColor =
+        isPending ? EasySitColors.pendingDark : EasySitColors.successFg;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
@@ -941,14 +1032,22 @@ class _SessionScreenState extends State<SessionScreen>
                       ),
                     ),
 
-                    // Circular countdown progress indicator
+                    // Circular countdown progress indicator with dynamic duration reduction
                     SizedBox(
                       width: 250,
                       height: 250,
                       child: CircularProgressIndicator(
                         value:
                             _remainingSeconds > 0
-                                ? _remainingSeconds / (10 * 60)
+                                ? (_remainingSeconds /
+                                        (isPending
+                                            ? (SeatExpiryService
+                                                    .pendingDurationMinutes *
+                                                60)
+                                            : (SeatExpiryService
+                                                    .bookedDurationMinutes *
+                                                60)))
+                                    .clamp(0.0, 1.0)
                                 : 0,
                         strokeWidth: 11,
                         backgroundColor:
@@ -1011,7 +1110,7 @@ class _SessionScreenState extends State<SessionScreen>
                         Text(
                           _formatTime(_remainingSeconds),
                           style: TextStyle(
-                            fontSize: 48,
+                            fontSize: _remainingSeconds >= 3600 ? 38 : 48,
                             fontWeight: FontWeight.bold,
                             color: darkTextColor,
                             height: 1.0,
@@ -1037,7 +1136,7 @@ class _SessionScreenState extends State<SessionScreen>
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            '10 mins',
+                            isPending ? '20 mins' : '2 hours',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -1077,11 +1176,7 @@ class _SessionScreenState extends State<SessionScreen>
                     color: EasySitColors.surface,
                     borderRadius: BorderRadius.all(Radius.circular(16)),
                   ),
-                  child: Icon(
-                    Icons.event_seat,
-                    color: accentColor,
-                    size: 36,
-                  ),
+                  child: Icon(Icons.event_seat, color: accentColor, size: 36),
                 ),
                 const SizedBox(width: 16),
 
@@ -1130,14 +1225,33 @@ class _SessionScreenState extends State<SessionScreen>
                               ),
                             ),
                             const SizedBox(height: 4),
-                            Text(
-                              '${_activeBooking!['buildingName'] ?? 'Admin'} • ${_activeBooking!['floorName'] ?? 'Floor 6'}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: EasySitColors.secondaryText,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            Builder(
+                              builder: (context) {
+                                final String b = (_activeBooking!['buildingName']?.toString() ?? '').trim();
+                                final String f = (_activeBooking!['floorName']?.toString() ?? '').trim();
+                                final String a = (_activeBooking!['roomName']?.toString() ?? '').trim();
+
+                                final List<String> parts = [
+                                  if (b.isNotEmpty) b,
+                                  if (f.isNotEmpty) f,
+                                  if (a.isNotEmpty) a,
+                                ];
+
+                                final String locationLine = parts.isNotEmpty
+                                    ? parts.join(' • ')
+                                    : 'Building • Floor • Area';
+
+                                return Text(
+                                  locationLine,
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: EasySitColors.secondaryText,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                );
+                              },
                             ),
                           ],
                         ),
@@ -1217,7 +1331,10 @@ class _SessionScreenState extends State<SessionScreen>
               decoration: BoxDecoration(
                 color: EasySitColors.surface,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: EasySitColors.errorBorder, width: 1.5),
+                border: Border.all(
+                  color: EasySitColors.errorBorder,
+                  width: 1.5,
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: EasySitColors.cardShadow,

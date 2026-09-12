@@ -13,26 +13,26 @@ void main() {
       expect(SeatExpiryService.getEffectiveStatus(seatData), equals('available'));
     });
 
-    test('Booked seat within 2 minutes is NOT expired and has status booked', () {
-      // 1 minute ago
-      final oneMinuteAgo = DateTime.now().subtract(const Duration(minutes: 1));
+    test('Booked seat within 2 hours is NOT expired and has status booked', () {
+      // 60 minutes ago (within 2 hours)
+      final sixtyMinutesAgo = DateTime.now().subtract(const Duration(minutes: 60));
       final seatData = <String, dynamic>{
         'status': 'booked',
         'bookedBy': 'student_offline_A',
-        'bookedAt': Timestamp.fromDate(oneMinuteAgo),
+        'bookedAt': Timestamp.fromDate(sixtyMinutesAgo),
       };
 
       expect(SeatExpiryService.isSeatExpired(seatData), isFalse);
       expect(SeatExpiryService.getEffectiveStatus(seatData), equals('booked'));
     });
 
-    test('Booked seat past 2 minutes IS expired and has effective status available (student offline)', () {
-      // 3 minutes ago
-      final threeMinutesAgo = DateTime.now().subtract(const Duration(minutes: 3));
+    test('Booked seat past 2 hours IS expired and has effective status available (student offline)', () {
+      // 125 minutes ago (exceeds 120 minutes / 2 hours)
+      final pastTwoHoursAgo = DateTime.now().subtract(const Duration(minutes: 125));
       final seatData = <String, dynamic>{
         'status': 'booked',
         'bookedBy': 'student_offline_A',
-        'bookedAt': Timestamp.fromDate(threeMinutesAgo),
+        'bookedAt': Timestamp.fromDate(pastTwoHoursAgo),
       };
 
       // Even though status in Firestore data is 'booked' because student A is offline,
@@ -41,24 +41,24 @@ void main() {
       expect(SeatExpiryService.getEffectiveStatus(seatData), equals('available'));
     });
 
-    test('Pending reservation within 10 minutes is NOT expired', () {
-      final fiveMinutesAgo = DateTime.now().subtract(const Duration(minutes: 5));
+    test('Pending reservation within 20 minutes is NOT expired', () {
+      final tenMinutesAgo = DateTime.now().subtract(const Duration(minutes: 10));
       final seatData = <String, dynamic>{
         'status': 'pending',
         'pendingBy': 'student_B',
-        'pendingAt': Timestamp.fromDate(fiveMinutesAgo),
+        'pendingAt': Timestamp.fromDate(tenMinutesAgo),
       };
 
       expect(SeatExpiryService.isSeatExpired(seatData), isFalse);
       expect(SeatExpiryService.getEffectiveStatus(seatData), equals('pending'));
     });
 
-    test('Pending reservation past 10 minutes IS expired and releases to available', () {
-      final elevenMinutesAgo = DateTime.now().subtract(const Duration(minutes: 11));
+    test('Pending reservation past 20 minutes IS expired and releases to available', () {
+      final twentyFiveMinutesAgo = DateTime.now().subtract(const Duration(minutes: 25));
       final seatData = <String, dynamic>{
         'status': 'pending',
         'pendingBy': 'student_B',
-        'pendingAt': Timestamp.fromDate(elevenMinutesAgo),
+        'pendingAt': Timestamp.fromDate(twentyFiveMinutesAgo),
       };
 
       expect(SeatExpiryService.isSeatExpired(seatData), isTrue);
@@ -66,8 +66,8 @@ void main() {
     });
 
     test('Room available seats calculation immediately counts expired seat as available for Student C', () {
-      final threeMinutesAgo = DateTime.now().subtract(const Duration(minutes: 3));
-      final oneMinuteAgo = DateTime.now().subtract(const Duration(minutes: 1));
+      final expiredBookedAgo = DateTime.now().subtract(const Duration(minutes: 130));
+      final activeBookedAgo = DateTime.now().subtract(const Duration(minutes: 30));
 
       final roomSeats = [
         {'id': 'seat_1', 'status': 'available'},
@@ -75,13 +75,13 @@ void main() {
           'id': 'seat_2',
           'status': 'booked',
           'bookedBy': 'offline_student',
-          'bookedAt': Timestamp.fromDate(threeMinutesAgo), // expired!
+          'bookedAt': Timestamp.fromDate(expiredBookedAgo), // expired!
         },
         {
           'id': 'seat_3',
           'status': 'booked',
           'bookedBy': 'active_student',
-          'bookedAt': Timestamp.fromDate(oneMinuteAgo), // active!
+          'bookedAt': Timestamp.fromDate(activeBookedAgo), // active!
         },
       ];
 

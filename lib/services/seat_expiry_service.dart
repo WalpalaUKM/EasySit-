@@ -2,12 +2,27 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'user_stats_service.dart';
 
 class SeatExpiryService {
-  static const int bookedDurationMinutes = 2;
-  static const int pendingDurationMinutes = 10;
+  // ============================================================================
+  // TIMING CONFIGURATION (UNITS & HOW TO CHANGE SAFELY)
+  // ============================================================================
+  // [SESSION DURATION]: Active study session time once QR is scanned/confirmed.
+  // Unit: Minutes (int).
+  // Current: 120 minutes (2 hours standard study session).
+  // How to change safely: Change this integer (e.g., set to 120 for 2 hours, 60 for 1 hour).
+  // NOTE: Keep in sync with functions/index.js (BOOKED_DURATION_MINUTES) & SessionWatcher.
+  static const int bookedDurationMinutes = 120;
+
+  // [RESERVATION GRACE PERIOD]: Time a student has to arrive and scan the QR code.
+  // Unit: Minutes (int).
+  // Current: 20 minutes.
+  // How to change safely: Change this integer (e.g., set to 20 for 20 minutes).
+  // NOTE: Keep in sync with functions/index.js (PENDING_DURATION_MINUTES).
+  static const int pendingDurationMinutes = 20;
 
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  /// Returns true if the seat has status 'booked' or 'pending' but its expiration timestamp has elapsed.
+  /// REAL-TIME CHECK: Returns true if seat status is 'booked' or 'pending'
+  /// but its allotted duration has expired based on current device time.
   static bool isSeatExpired(Map<String, dynamic>? seatData) {
     if (seatData == null) return false;
     final String status = seatData['status']?.toString() ?? 'available';
@@ -16,6 +31,7 @@ class SeatExpiryService {
     final now = DateTime.now();
 
     if (status == 'booked') {
+      // Compares current time against (bookedAt timestamp + bookedDurationMinutes)
       final bookedAt = seatData['bookedAt'] as Timestamp?;
       if (bookedAt == null) return false;
       final expiresAt = bookedAt.toDate().add(
@@ -23,6 +39,7 @@ class SeatExpiryService {
       );
       return now.isAfter(expiresAt);
     } else if (status == 'pending') {
+      // Compares current time against (pendingAt timestamp + pendingDurationMinutes)
       final pendingAt = seatData['pendingAt'] as Timestamp?;
       if (pendingAt == null) return false;
       final expiresAt = pendingAt.toDate().add(
@@ -68,7 +85,9 @@ class SeatExpiryService {
 
   static final Set<String> _inFlightReleases = {};
 
-  /// Asynchronously releases an expired seat in Firestore so other online users see the update immediately.
+  /// SEAT-RELEASE LOGIC:
+  /// Updates Firestore seat document to 'available', deletes booking fields,
+  /// and saves the student's completed session study statistics.
   static Future<bool> releaseExpiredSeatIfNeeded(
     String seatId,
     Map<String, dynamic>? seatData,
@@ -93,6 +112,7 @@ class SeatExpiryService {
         );
       }
 
+      // Reset seat in Firestore back to available so all users see it immediately
       await _firestore.collection('seats').doc(seatId).update({
         'status': 'available',
         'bookedBy': FieldValue.delete(),
@@ -109,8 +129,9 @@ class SeatExpiryService {
     }
   }
 
-  /// Global sweep across all booked and pending seats in Firestore.
-  /// Releases any expired seat regardless of which user booked it or whether their app is closed.
+  /// GLOBAL SWEEP (SEAT-RELEASE LOGIC):
+  /// Runs across all booked and pending seats in Firestore.
+  /// Releases any expired seat regardless of whether the user who booked it is online.
   static Future<int> releaseAllExpiredSeatsGlobal() async {
     try {
       int releasedCount = 0;

@@ -13,6 +13,14 @@ import '../widgets/realtime_room_card.dart';
 import '../services/seat_expiry_service.dart';
 import 'dart:async';
 
+// ============================================================================
+// FIND SEATS SCREEN (REAL-TIME SEAT DISCOVERY & MULTI-FILTERING)
+// ============================================================================
+/// This screen allows students to browse campus buildings, floors, and rooms.
+/// Features:
+/// - Real-time Firestore streams for buildings, rooms, floors, and seats.
+/// - Dynamic available seat counts (auto-recalculates when a seat expires).
+/// - Instant multi-tier filtering (by building, floor, room zone, and search text).
 class FindSeatsScreen extends StatefulWidget {
   const FindSeatsScreen({super.key});
 
@@ -31,6 +39,7 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
   String? _selectedAreaId;
   String? _selectedAreaName;
 
+  // Real-time Firestore streams
   late Stream<QuerySnapshot> _buildingsStream;
   late Stream<QuerySnapshot> _roomsStream;
   late Stream<List<Map<String, dynamic>>> _allRoomsStream;
@@ -41,9 +50,11 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
   @override
   void initState() {
     super.initState();
+    // Real-time listener: triggers whenever buildings or rooms change
     _buildingsStream = _firestore.collection('buildings').snapshots();
     _roomsStream = _firestore.collection('rooms').snapshots();
     _allRoomsStream = _buildAllRoomsStream();
+    // Cleanup any expired seats across the database immediately on screen launch
     SeatExpiryService.releaseAllExpiredSeatsGlobal();
   }
 
@@ -53,6 +64,7 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
     super.dispose();
   }
 
+  /// Returns real-time stream of floors for the currently selected building.
   Stream<QuerySnapshot>? _getFloorsStream() {
     if (_selectedBuildingId == null) {
       return null;
@@ -69,6 +81,8 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
     return _floorsStream;
   }
 
+  /// Aggregates all rooms across buildings & floors with real-time available seat counts.
+  /// Dynamically accounts for expired seats so counts are accurate to the second.
   Stream<List<Map<String, dynamic>>> _buildAllRoomsStream() {
     return _firestore.collection('buildings').snapshots().asyncMap((
       buildingSnapshot,
@@ -105,6 +119,8 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
                     .where('roomId', isEqualTo: roomId)
                     .get();
 
+            // Real-time seat calculation: A seat counts as available if status == 'available'
+            // OR if its booked/pending time has elapsed past expiration.
             int availableSeats = 0;
             for (var seatDoc in seatsSnapshot.docs) {
               var sData = seatDoc.data() as Map<String, dynamic>;

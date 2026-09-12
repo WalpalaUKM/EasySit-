@@ -5,14 +5,18 @@ import '../utils/app_colors.dart';
 class SessionExtendedDialog extends StatelessWidget {
   final int minutes;
 
-  const SessionExtendedDialog({super.key, this.minutes = 4});
+  const SessionExtendedDialog({super.key, this.minutes = 120});
 
   static bool _isShowing = false;
   static DateTime? _lastShownAt;
 
-  static void show([BuildContext? context, int minutes = 4]) {
+  static void show([BuildContext? context, int minutes = 120]) {
     final targetContext = context ?? navigatorKey.currentContext;
     if (targetContext == null) return;
+
+    final String durationText = minutes >= 60
+        ? '${minutes ~/ 60} ${minutes ~/ 60 == 1 ? "hour" : "hours"}'
+        : '$minutes minutes';
 
     final now = DateTime.now();
     if (_isShowing) return;
@@ -82,7 +86,7 @@ class SessionExtendedDialog extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Your session has been successfully extended by $minutes minutes.',
+                  'Your session has been successfully extended by $durationText.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontFamily: 'Inter',
@@ -112,7 +116,7 @@ class SessionExtendedDialog extends StatelessWidget {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        '+$minutes minutes added',
+                        '+$durationText added',
                         style: const TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w700,

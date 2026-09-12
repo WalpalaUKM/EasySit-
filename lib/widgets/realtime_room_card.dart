@@ -66,6 +66,12 @@ class _RealtimeRoomCardState extends State<RealtimeRoomCard> {
     super.dispose();
   }
 
+  // ============================================================================
+  // [REAL-TIME EXPIRY TRIGGER SCHEDULING]
+  // ============================================================================
+  /// Schedules a lightweight local timer set exactly to the next expiring seat's deadline.
+  /// When that moment arrives, setState() re-renders the card so the available seat counter
+  /// increments immediately without requiring manual user refresh.
   void _scheduleExpiryCheck(DateTime expiresAt) {
     final now = DateTime.now();
     if (expiresAt.isAfter(now)) {
@@ -85,6 +91,7 @@ class _RealtimeRoomCardState extends State<RealtimeRoomCard> {
     final theme = widget.theme;
     final String roomId = room['roomId'] ?? '';
 
+    // Real-time Firestore stream listener for seats in this room
     return StreamBuilder<QuerySnapshot>(
       stream: _seatStream,
       builder: (context, seatSnapshot) {
@@ -96,6 +103,7 @@ class _RealtimeRoomCardState extends State<RealtimeRoomCard> {
           final now = DateTime.now();
           for (var d in seatSnapshot.data!.docs) {
             var data = d.data() as Map<String, dynamic>;
+            // Real-time expiration evaluation
             final isExpired = SeatExpiryService.isSeatExpired(data);
             final status = data['status']?.toString() ?? 'available';
 

@@ -5,24 +5,23 @@ import 'package:easy_sit1212/widgets/expiry_dialog.dart';
 
 void main() {
   group('Session Extension Calculation Tests', () {
-    test('Extension calculates exactly 4 minutes remaining', () {
+    test('Extension calculates exactly 2 hours remaining', () {
       final now = DateTime.now();
-      // Since booking duration is now 2 minutes, setting effectiveBookedAt = now + 2 minutes
-      // ensures (effectiveBookedAt + 2 minutes) = now + 4 minutes.
-      final effectiveBookedAt = now.add(const Duration(minutes: 2));
-      final expiresAt = effectiveBookedAt.add(const Duration(minutes: 2));
+      // Setting effectiveBookedAt = now ensures (effectiveBookedAt + 2 hours) = now + 2 hours.
+      final effectiveBookedAt = now;
+      final expiresAt = effectiveBookedAt.add(const Duration(hours: 2));
 
       final remainingSeconds = expiresAt.difference(now).inSeconds;
-      expect(remainingSeconds, 240); // 4 minutes = 240 seconds
-      expect(expiresAt.difference(now).inMinutes, 4);
+      expect(remainingSeconds, 7200); // 2 hours = 7200 seconds
+      expect(expiresAt.difference(now).inMinutes, 120);
     });
 
-    testWidgets('SessionExtendedDialog displays 4 minutes in message',
+    testWidgets('SessionExtendedDialog displays 2 hours in message',
         (WidgetTester tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
-            body: SessionExtendedDialog(minutes: 4),
+            body: SessionExtendedDialog(minutes: 120),
           ),
         ),
       );
@@ -31,7 +30,7 @@ void main() {
       expect(find.text('Session Extended'), findsNothing); // Dialog itself is triggered by show()
     });
 
-    testWidgets('ExpiryDialog prompts for 4 minutes extension',
+    testWidgets('ExpiryDialog prompts for 2 hours extension',
         (WidgetTester tester) async {
       await tester.pumpWidget(
         const MaterialApp(
@@ -45,10 +44,10 @@ void main() {
         ),
       );
 
-      expect(find.text('Extend (+4m)'), findsOneWidget);
+      expect(find.text('Extend (+2h)'), findsOneWidget);
       expect(
         find.text(
-          'Would you like to extend your session by 4 minutes or release the seat for other students?',
+          'Would you like to extend your session by 2 hours or release the seat for other students?',
         ),
         findsOneWidget,
       );
