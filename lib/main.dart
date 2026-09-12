@@ -15,12 +15,22 @@ import 'navigator_key.dart';
 import 'utils/app_page_route.dart';
 import 'utils/app_colors.dart';
 
+// ============================================================================
+// APPLICATION ENTRY POINT & SERVICE INITIALIZATION
+// ============================================================================
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 1. Initialize Firebase services (Firestore, Auth, Cloud Messaging)
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // 2. Initialize local notifications plugin for session reminders
   await NotificationService.initialize();
+
+  // 3. Start background real-time session watcher (monitors 2m booked / 10m pending expirations)
   SessionWatcher.start();
 
+  // System UI status bar & navigation bar theme styling
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,

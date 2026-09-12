@@ -4,12 +4,15 @@ import 'package:flutter/foundation.dart';
 class UserStatsService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // ============================================================================
+  // USER STUDY STATISTICS RECORDING (UNITS & SAFE VALUE RANGES)
+  // ============================================================================
   /// Records a completed session for the user and updates all three statistics in real time:
-  /// 1. sessionsCompleted
-  /// 2. hoursStudied / totalMinutesStudied
-  /// 3. differentSeatsUsed / usedSeats
+  /// 1. sessionsCompleted (count of finished study sessions)
+  /// 2. hoursStudied / totalMinutesStudied (unit: minutes converted to hours)
+  /// 3. differentSeatsUsed / usedSeats (unique seat IDs used)
   ///
-  /// Uses transaction and deduplication key to guarantee exact counting.
+  /// Uses Firestore runTransaction and deduplication key to guarantee exact counting.
   static Future<void> recordCompletedSession({
     required String userId,
     required String seatId,
@@ -26,12 +29,15 @@ class UserStatsService {
           ? '${cleanSeatId}_${bookedAt.millisecondsSinceEpoch}'
           : '${cleanSeatId}_${effectiveBookedAt.millisecondsSinceEpoch ~/ 10000}';
 
-      // Determine study duration in minutes (minimum 1 minute, default 10 minutes)
-      int durationMinutes = fallbackMinutes ?? 10;
+      // [STUDY DURATION CALCULATION]:
+      // Unit: Minutes (int).
+      // Fallback: 120 minutes (2 hours standard study session duration).
+      // Safeguard: Capped at 720 minutes (12 hours) to avoid abnormally large values if system clock jumps.
+      int durationMinutes = fallbackMinutes ?? 120;
       if (bookedAt != null) {
         final diff = DateTime.now().difference(bookedAt).inMinutes;
         if (diff > 0) {
-          durationMinutes = diff > 720 ? 10 : diff; // Safeguard against stale dates
+          durationMinutes = diff > 720 ? 120 : diff; // Safeguard against stale dates
         }
       }
       if (durationMinutes <= 0) durationMinutes = 1;

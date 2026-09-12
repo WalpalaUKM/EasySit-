@@ -5,11 +5,26 @@ const admin = require("firebase-admin");
 admin.initializeApp();
 const db = admin.firestore();
 
-const BOOKED_DURATION_MINUTES = 2;
-const PENDING_DURATION_MINUTES = 10;
+// ============================================================================
+// BACKEND TIMING CONFIGURATION (UNITS & HOW TO CHANGE SAFELY)
+// ============================================================================
+// [BOOKED SESSION DURATION]:
+// Unit: Minutes (integer).
+// Current: 120 minutes (2 hours standard study session).
+// How to change safely: Update this number (e.g., 120 for 2 hours, 60 for 1 hour).
+// NOTE: Always match with Flutter SeatExpiryService.bookedDurationMinutes!
+const BOOKED_DURATION_MINUTES = 120;
+
+// [PENDING RESERVATION GRACE PERIOD]:
+// Unit: Minutes (integer).
+// Current: 20 minutes.
+// How to change safely: Update this number (e.g., 20 for 20 minutes).
+// NOTE: Always match with Flutter SeatExpiryService.pendingDurationMinutes!
+const PENDING_DURATION_MINUTES = 20;
 
 /**
  * Core helper to check and release all expired seats in Firestore.
+ * Performs atomic Firestore batch operations to ensure consistency.
  */
 async function processExpiredSeats() {
   const now = Date.now();
@@ -88,9 +103,15 @@ async function processExpiredSeats() {
   return releaseCount;
 }
 
+// ============================================================================
+// [BACKGROUND CLOUD SCHEDULER / CRON JOB]
+// ============================================================================
 /**
  * Scheduled Cloud Function running every 1 minute.
- * Releases seats even when all students' apps are closed or offline.
+ * Unit: Minutes (Runs every 1 minute: "every 1 minutes").
+ * Purpose: Ensures expired seats are freed even if students close their apps,
+ * go offline, or lose internet connectivity.
+ * How to change safely: Modify "every 1 minutes" (e.g. "every 5 minutes").
  */
 exports.releaseExpiredSeatsCron = onSchedule("every 1 minutes", async (event) => {
   try {

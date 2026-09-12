@@ -22,6 +22,12 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _rememberMe = false;
 
+  // ============================================================================
+  // [AUTHENTICATION IDENTIFIER RESOLUTION & VALIDATION]
+  // ============================================================================
+  /// Converts entered Student ID or Admin handle to internal Firebase Auth email alias:
+  /// - Admin format: admin@username -> admin_username@easysit.app
+  /// - Student ID format: CT2021001 -> ct2021001@easysit.app
   String _studentNumberToEmail(String studentNumber) {
     final trimmed = studentNumber.trim().toLowerCase();
     if (trimmed.startsWith('admin@')) {
@@ -33,6 +39,13 @@ class _LoginScreenState extends State<LoginScreen> {
     return '$cleaned@easysit.app';
   }
 
+  // ============================================================================
+  // [USER LOGIN & ROLE-BASED ACCESS CONTROL]
+  // ============================================================================
+  /// Authenticates user with Firebase Auth, validates account status (blocked check),
+  /// and redirects based on user role:
+  /// - 'admin' -> /admin_dashboard
+  /// - 'student' -> /student_home
   Future<void> _login() async {
     final input = _studentNumberController.text.trim();
     final password = _passwordController.text;
@@ -89,6 +102,7 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
 
+      // Fetch user profile from Firestore to inspect userType and blocked status
       DocumentSnapshot userDoc =
           await FirebaseFirestore.instance
               .collection('users')
@@ -98,6 +112,7 @@ class _LoginScreenState extends State<LoginScreen> {
       String userType = 'student';
       if (userDoc.exists) {
         var data = userDoc.data() as Map<String, dynamic>?;
+        // Blocked student validation
         if (data != null && data['isBlocked'] == true) {
           await AuthPersistenceService.clear();
           await FirebaseAuth.instance.signOut();
@@ -117,6 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       await AuthPersistenceService.setRememberMe(_rememberMe);
 
+      // Route based on role
       if (mounted) {
         if (userType == 'admin') {
           Navigator.pushReplacementNamed(context, '/admin_dashboard');

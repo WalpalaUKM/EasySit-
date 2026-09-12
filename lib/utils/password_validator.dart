@@ -28,7 +28,21 @@ class PasswordValidationResult {
   bool get isStrong => score == 5;
 }
 
+// ============================================================================
+// [PASSWORD POLICY VALIDATION]
+// ============================================================================
+/// Validates user passwords against security rules:
+/// - Minimum length: 8 characters (unit: characters).
+/// - At least one uppercase letter (A-Z).
+/// - At least one lowercase letter (a-z).
+/// - At least one numerical digit (0-9).
+/// - At least one special character (!@#$%^&*...).
+/// How to change safely: Change `minLength` (e.g., set to 6 or 10).
 class PasswordValidator {
+  // [PASSWORD MINIMUM LENGTH]:
+  // Unit: Characters (int).
+  // Current: 8 characters.
+  // How to change safely: Modify this constant integer.
   static const int minLength = 8;
   static final RegExp _uppercaseRegExp = RegExp(r'[A-Z]');
   static final RegExp _lowercaseRegExp = RegExp(r'[a-z]');

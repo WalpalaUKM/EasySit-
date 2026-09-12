@@ -69,9 +69,18 @@ Widget _buildEasySitCard({required Widget child, EdgeInsetsGeometry? margin, Edg
   );
 }
 
-// ============================================================
-// MAIN ADMIN DASHBOARD
-// ============================================================
+// ============================================================================
+// MAIN ADMIN DASHBOARD (CAMPUS & FACILITY MANAGEMENT PORTAL)
+// ============================================================================
+/// The administrator dashboard provides authorized campus staff with:
+/// 1. Home Overview: Real-time campus seat availability & analytics
+/// 2. Manage Buildings: Add, edit, remove library buildings
+/// 3. Manage Floors: Associate floors with buildings
+/// 4. Manage Rooms: Create quiet zones, group rooms, lab spaces
+/// 5. Manage Seats & QR: Seat capacity, layout generation, and batch PDF QR export
+/// 6. Student Behavior: Track study hours, check blocked users, usage analytics
+/// 7. Send Notification: Push instant broadcast or personal announcements
+/// 8. Admin Profile: Account settings & password changes
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
 
@@ -430,6 +439,10 @@ class AdminHomeScreen extends StatelessWidget {
 
   const AdminHomeScreen({super.key, required this.onNavigate});
 
+  /// Time-of-day greeting (Unit: Hours, 24-hour format 0-23):
+  /// - Morning: < 12 (00:00 to 11:59)
+  /// - Afternoon: 12 to 16 (12:00 to 16:59)
+  /// - Evening: >= 17 (17:00 to 23:59)
   String _getGreeting() {
     final hour = DateTime.now().hour;
     if (hour < 12) {

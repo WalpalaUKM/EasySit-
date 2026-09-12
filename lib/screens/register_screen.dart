@@ -97,14 +97,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  // Check if Student ID is valid
+  // ============================================================================
+  // [STUDENT ID FORMAT VALIDATION]
+  // ============================================================================
+  /// Enforces valid university student ID or admin handle formatting:
+  /// - Admin account format: Starts with "admin@" (e.g. admin@library).
+  /// - Student ID format: Must start with department prefixes "ct", "et", or "cs" (e.g. CT2021001).
+  /// How to change safely: Add additional faculty prefixes (e.g. "it", "bm") to the `!lower.startsWith(...)` condition.
   String? _validateStudentId(String value) {
     final trimmed = value.trim();
     if (trimmed.isEmpty) {
       return 'Please enter a Student ID';
     }
     final lower = trimmed.toLowerCase();
-    // Check for admin (must start with admin@)
+    // Check for admin handle (must start with admin@)
     if (lower.startsWith('admin@')) {
       if (lower.length <= 6) {
         return 'Please enter a valid admin username (e.g. admin@username)';
@@ -120,6 +126,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return null; // Valid
   }
 
+  /// Converts student ID or admin handle to internal Firebase Auth email
   String _studentIdToEmail(String studentId) {
     final trimmed = studentId.trim().toLowerCase();
     if (trimmed.startsWith('admin@')) {

@@ -13,6 +13,7 @@ import '../utils/app_page_route.dart';
 import '../utils/app_colors.dart';
 import '../widgets/notification_bell_button.dart';
 import '../services/auth_persistence_service.dart';
+import '../services/seat_expiry_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool isTab;
@@ -40,14 +41,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? _activeBooking;
   String _bookingStatus = '';
 
+  // ============================================================================
+  // [STUDENT STUDY METRICS & STATISTICS (UNITS)]
+  // ============================================================================
+  // sessionsCompleted: Total number of finished study sessions (unit: count).
+  // totalMinutesStudied: Total minutes recorded in Firestore (unit: minutes).
+  // hoursStudiedNum / _hoursStudiedFormatted: totalMinutesStudied / 60.0 (unit: hours, 1 decimal place).
+  // differentSeatsUsed: Count of unique seat IDs used by this student (unit: count).
   int _sessionsCompleted = 0;
   num _hoursStudiedNum = 0;
   int _totalMinutesStudied = 0;
   int _differentSeatsUsed = 0;
 
+  /// Formats total minutes studied into decimal or integer hours (e.g. 1.5 hrs).
   String get _hoursStudiedFormatted {
     num val = _totalMinutesStudied > 0
-        ? (_totalMinutesStudied / 60.0)
+        ? (_totalMinutesStudied / 60.0) // Unit: Hours (converted from minutes)
         : _hoursStudiedNum;
     if (val <= 0) return '0';
     if (val == val.roundToDouble()) {
@@ -261,25 +270,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     // 2. Fetch room/floor/building in background if not present on seat doc
-    String roomId = data['roomId'] ?? '';
-    if (roomId.isNotEmpty && (roomName.isEmpty || buildingName.isEmpty)) {
+    String roomId = (data['roomId'] ?? '').toString().trim();
+    if (roomName.isEmpty || floorName.isEmpty || buildingName.isEmpty) {
       try {
-        DocumentSnapshot roomDoc =
-            await _firestore.collection('rooms').doc(roomId).get();
-        var roomData = roomDoc.data() as Map<String, dynamic>?;
-        roomName = roomData?['name'] ?? roomName;
-        String floorId = roomData?['floorId'] ?? '';
-        if (floorId.isNotEmpty) {
-          DocumentSnapshot floorDoc =
-              await _firestore.collection('floors').doc(floorId).get();
-          var floorData = floorDoc.data() as Map<String, dynamic>?;
-          floorName = floorData?['name'] ?? floorName;
-          String buildingId = floorData?['buildingId'] ?? '';
-          if (buildingId.isNotEmpty) {
-            DocumentSnapshot buildingDoc =
-                await _firestore.collection('buildings').doc(buildingId).get();
-            var buildingData = buildingDoc.data() as Map<String, dynamic>?;
-            buildingName = buildingData?['name'] ?? buildingName;
+        if (roomId.isNotEmpty) {
+          DocumentSnapshot roomDoc =
+              await _firestore.collection('rooms').doc(roomId).get();
+          var roomData = roomDoc.data() as Map<String, dynamic>?;
+          if (roomName.isEmpty) roomName = roomData?['name'] ?? roomName;
+          String floorId = roomData?['floorId'] ?? '';
+          if (floorId.isNotEmpty) {
+            DocumentSnapshot floorDoc =
+                await _firestore.collection('floors').doc(floorId).get();
+            var floorData = floorDoc.data() as Map<String, dynamic>?;
+            if (floorName.isEmpty) floorName = floorData?['name'] ?? floorName;
+            String buildingId = floorData?['buildingId'] ?? '';
+            if (buildingId.isNotEmpty && buildingName.isEmpty) {
+              DocumentSnapshot buildingDoc =
+                  await _firestore.collection('buildings').doc(buildingId).get();
+              var buildingData = buildingDoc.data() as Map<String, dynamic>?;
+              if (buildingName.isEmpty) buildingName = buildingData?['name'] ?? buildingName;
+            }
+          }
+        }
+
+        // If roomId was empty, lookup room by roomName
+        if ((floorName.isEmpty || buildingName.isEmpty) && roomName.isNotEmpty) {
+          QuerySnapshot rSnap = await _firestore
+              .collection('rooms')
+              .where('name', isEqualTo: roomName)
+              .limit(1)
+              .get();
+          if (rSnap.docs.isNotEmpty) {
+            var rData = rSnap.docs.first.data() as Map<String, dynamic>;
+            String fId = (rData['floorId'] ?? '').toString().trim();
+            if (fId.isNotEmpty) {
+              DocumentSnapshot fDoc =
+                  await _firestore.collection('floors').doc(fId).get();
+              var fData = fDoc.data() as Map<String, dynamic>?;
+              if (floorName.isEmpty) floorName = fData?['name'] ?? floorName;
+              String bId = fData?['buildingId'] ?? '';
+              if (bId.isNotEmpty && buildingName.isEmpty) {
+                DocumentSnapshot bDoc =
+                    await _firestore.collection('buildings').doc(bId).get();
+                var bData = bDoc.data() as Map<String, dynamic>?;
+                if (buildingName.isEmpty) buildingName = bData?['name'] ?? buildingName;
+              }
+            }
           }
         }
 
@@ -307,11 +344,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final bool isBooked =
         _activeBooking!['status'] == 'booked' ||
         _activeBooking!['bookedAt'] != null;
-    final duration =
-        isBooked ? const Duration(minutes: 2) : const Duration(minutes: 10);
+    final duration = isBooked
+        ? const Duration(minutes: SeatExpiryService.bookedDurationMinutes)
+        : const Duration(minutes: SeatExpiryService.pendingDurationMinutes);
     final expiresAt = ts.toDate().add(duration);
     final diff = expiresAt.difference(DateTime.now());
     if (diff.isNegative) return '00:00';
+    if (diff.inHours > 0) {
+      final hours = diff.inHours.toString().padLeft(2, '0');
+      final mins = (diff.inMinutes % 60).toString().padLeft(2, '0');
+      final secs = (diff.inSeconds % 60).toString().padLeft(2, '0');
+      return '$hours:$mins:$secs';
+    }
     final mins = diff.inMinutes.toString().padLeft(2, '0');
     final secs = (diff.inSeconds % 60).toString().padLeft(2, '0');
     return '$mins:$secs';

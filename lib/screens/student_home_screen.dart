@@ -88,6 +88,10 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
     }
   }
 
+  // [TIME-BASED GREETING UPDATER]:
+  // Unit: Seconds. Runs every 30 seconds (Duration(seconds: 30)).
+  // Dynamically updates greeting ('Good Morning', 'Good Afternoon', etc.)
+  // based on current Sri Lanka time (UTC+05:30) without needing app restart.
   void _startGreetingTimer() {
     _greetingTimer?.cancel();
     _greetingTimer = Timer.periodic(const Duration(seconds: 30), (_) {
@@ -299,6 +303,15 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
     );
   }
 
+  // ============================================================================
+  // [STARTUP SEAT EXPIRATION & AUTO-RELEASE SWEEP]
+  // ============================================================================
+  /// Triggered on home screen load:
+  /// 1. Sweeps entire Firestore database to release all expired seats globally.
+  /// 2. Checks active booked seat: Expiry duration is 2 hours (120 minutes) (unit: minutes).
+  ///    If expired, records completed study stats and releases seat.
+  /// 3. Checks pending reservation: Grace duration is 20 minutes (unit: minutes).
+  ///    If expired, releases seat and displays ReservationExpiredDialog.
   Future<void> _checkAndReleaseExpiredBookings() async {
     // Release any expired seats across the whole database
     await SeatExpiryService.releaseAllExpiredSeatsGlobal();
@@ -307,6 +320,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
     try {
       final now = DateTime.now();
 
+      // Check user's booked seat (2-hour session duration)
       QuerySnapshot bookedSeats =
           await _firestore
               .collection('seats')
@@ -318,20 +332,21 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
         Timestamp? bookedAt = data['bookedAt'] as Timestamp?;
         if (bookedAt != null) {
           DateTime expiresAt = bookedAt.toDate().add(
-            const Duration(minutes: 2),
+            const Duration(hours: 2),
           );
           if (now.isAfter(expiresAt)) {
             await UserStatsService.recordCompletedSession(
               userId: _user.uid,
               seatId: doc.id,
               bookedAt: bookedAt.toDate(),
-              fallbackMinutes: 2,
+              fallbackMinutes: 120,
             );
             await SeatExpiryService.releaseExpiredSeatIfNeeded(doc.id, data);
           }
         }
       }
 
+      // Check user's pending reservation (20-minute grace period)
       QuerySnapshot pendingSeats =
           await _firestore
               .collection('seats')
@@ -343,7 +358,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
         Timestamp? pendingAt = data['pendingAt'] as Timestamp?;
         if (pendingAt != null) {
           DateTime expiresAt = pendingAt.toDate().add(
-            const Duration(minutes: 10),
+            const Duration(minutes: 20),
           );
           if (DateTime.now().isAfter(expiresAt)) {
             await SeatExpiryService.releaseExpiredSeatIfNeeded(doc.id, data);

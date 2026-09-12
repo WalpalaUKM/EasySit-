@@ -46,7 +46,11 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
         .collection('seats')
         .where('roomId', isEqualTo: widget.roomId)
         .snapshots();
-    // Real-time ticker to immediately update seat status the instant a booking expires
+
+    // [REAL-TIME EXPIRATION TICKER]:
+    // Unit: Seconds. Runs every 1 second (Duration(seconds: 1)).
+    // Re-evaluates seat expiration on screen so that when a seat's 10-minute pending
+    // or 2-minute booked timer hits 0, its color updates from occupied/pending to available instantly.
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
     });
@@ -58,7 +62,17 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
     super.dispose();
   }
 
+  // ============================================================================
+  // [MAXIMUM BOOKING LIMIT VALIDATION]
+  // ============================================================================
+  /// EasySit enforces a strict maximum limit of ONE (1) active seat per student:
+  /// Unit: Seats (Max: 1 active seat, either 'pending' reservation or 'booked' session).
+  ///
+  /// How to change safely:
+  /// If you wish to allow multiple seats (e.g. max 2 seats), change `.limit(1)` to `.limit(2)`
+  /// and check if `(pending.docs.length + booked.docs.length) >= MAX_ALLOWED_SEATS`.
   Future<bool> _hasExistingBooking(String uid) async {
+    // 1. Check if user already holds a pending reservation
     QuerySnapshot pending =
         await _firestore
             .collection('seats')
@@ -67,15 +81,18 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
             .get();
     if (pending.docs.isNotEmpty) {
       final pData = pending.docs.first.data() as Map<String, dynamic>;
+      // If the pending reservation already elapsed past 20 minutes, release it
       if (SeatExpiryService.isSeatExpired(pData)) {
         await SeatExpiryService.releaseExpiredSeatIfNeeded(
           pending.docs.first.id,
           pData,
         );
       } else {
-        return true;
+        return true; // Student already has an active pending seat
       }
     }
+
+    // 2. Check if user already has an active booked session
     QuerySnapshot booked =
         await _firestore
             .collection('seats')
@@ -84,16 +101,17 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
             .get();
     if (booked.docs.isNotEmpty) {
       final bData = booked.docs.first.data() as Map<String, dynamic>;
+      // If the booked session already elapsed past 2 minutes, release it
       if (SeatExpiryService.isSeatExpired(bData)) {
         await SeatExpiryService.releaseExpiredSeatIfNeeded(
           booked.docs.first.id,
           bData,
         );
       } else {
-        return true;
+        return true; // Student already has an active booked seat
       }
     }
-    return false;
+    return false; // Student has no active booking, allowed to book
   }
 
   void _showActiveBookingPopup(BuildContext context) {
@@ -168,6 +186,14 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
     );
   }
 
+  // ============================================================================
+  // [SEAT RESERVATION LOGIC]
+  // ============================================================================
+  /// Reserves a seat for the logged-in student:
+  /// - Reservation duration / Grace period: 20 minutes (unit: minutes).
+  /// - Status changes: 'available' -> 'pending'.
+  /// - Sets 'pendingAt' to current server timestamp.
+  /// - Student must scan the physical QR code at the seat within 20 minutes to confirm.
   Future<void> _reserveSeat(String seatId, String seatNumber) async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -182,6 +208,7 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
       return;
     }
 
+    // Validate that the student does not already hold another active seat
     bool hasBooking = await _hasExistingBooking(user.uid);
     if (hasBooking) {
       if (mounted) {
@@ -278,7 +305,7 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                   ),
                   const SizedBox(height: 18),
 
-                  // 10-minute warning alert card
+                  // 10-minute warning alert card (Grace period display)
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
@@ -310,7 +337,7 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                               children: [
                                 TextSpan(text: 'You have '),
                                 TextSpan(
-                                  text: '10 minutes',
+                                  text: '20 minutes',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: EasySitColors.warningFg,
@@ -415,15 +442,33 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
         }
       }
 
+      final now = DateTime.now();
+      // Transition seat to 'pending' in Firestore with complete location hierarchy
       await _firestore.collection('seats').doc(seatId).update({
         'status': 'pending',
         'pendingBy': user.uid,
-        'pendingAt': Timestamp.fromDate(DateTime.now()),
+        'pendingAt': Timestamp.fromDate(now),
         'buildingName': widget.buildingName,
         'roomName': widget.roomName,
+        'floorName': widget.floorName,
         'bookedBy': FieldValue.delete(),
         'bookedAt': FieldValue.delete(),
       });
+
+      final pendingSessionData = {
+        'docId': seatId,
+        'seatId': seatId,
+        'seatNumber': seatNumber,
+        'roomName': widget.roomName,
+        'floorName': widget.floorName,
+        'buildingName': widget.buildingName,
+        'status': 'pending',
+        'pendingBy': user.uid,
+        'pendingAt': Timestamp.fromDate(now),
+        'zone': 'Quiet Zone',
+      };
+      ProfileScreen.cachedBooking = pendingSessionData;
+      ProfileScreen.cachedStatus = 'pending';
 
       if (mounted) {
         if (widget.onBookingComplete != null) {
@@ -431,7 +476,12 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
         } else {
           Navigator.pushReplacement(
             context,
-            AppPageRoute(builder: (_) => const SessionScreen()),
+            AppPageRoute(
+              builder: (_) => SessionScreen(
+                initialBooking: pendingSessionData,
+                initialStatus: 'pending',
+              ),
+            ),
           );
         }
       }
@@ -444,6 +494,11 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
     }
   }
 
+  // ============================================================================
+  // [MANUAL SEAT RELEASE FOR PENDING RESERVATIONS]
+  // ============================================================================
+  /// Allows a student to voluntarily cancel/release their pending reservation
+  /// before the 10-minute grace period elapses, freeing it for other students.
   Future<void> _cancelPending(String seatId, String seatNumber) async {
     bool? confirm = await showDialog<bool>(
       context: context,
