@@ -1,5 +1,6 @@
 // lib/screens/register_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/password_validator.dart';
@@ -27,22 +28,61 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
   String _errorMessage = '';
+  int _prevEmailLength = 0;
 
   @override
   void initState() {
     super.initState();
     _passwordController.addListener(_onFieldChanged);
     _confirmPasswordController.addListener(_onFieldChanged);
+    _emailController.addListener(_onEmailChanged);
   }
 
   void _onFieldChanged() {
     if (mounted) setState(() {});
   }
 
+  // ============================================================================
+  // [UNIVERSITY EMAIL AUTOFILL ON '@' SYMBOL]
+  // ============================================================================
+  /// Automatically completes "stu.kln.ac.lk" when the student types '@'
+  /// after entering their name and department/reg number details (e.g. name-ct23001@).
+  void _onEmailChanged() {
+    final text = _emailController.text;
+    // Trigger only when typing forward and the text ends with '@'
+    if (text.length > _prevEmailLength && text.endsWith('@')) {
+      final prefix = text.substring(0, text.length - 1);
+      // Ensure prefix has content and doesn't already contain another '@'
+      if (!prefix.contains('@') && prefix.isNotEmpty) {
+        final autofilled = '${text}stu.kln.ac.lk';
+        _prevEmailLength = autofilled.length;
+        _emailController.value = TextEditingValue(
+          text: autofilled,
+          selection: TextSelection.collapsed(offset: autofilled.length),
+        );
+
+        // Conveniently auto-populate Student ID if currently empty (e.g. name-ct23001 -> CT23001)
+        if (_studentIdController.text.trim().isEmpty) {
+          final idMatch = RegExp(
+            r'-(ct|cs|et)(\d{2}\d{3})$',
+            caseSensitive: false,
+          ).firstMatch(prefix);
+          if (idMatch != null) {
+            _studentIdController.text =
+                '${idMatch.group(1)!.toUpperCase()}${idMatch.group(2)}';
+          }
+        }
+        return;
+      }
+    }
+    _prevEmailLength = text.length;
+  }
+
   @override
   void dispose() {
     _passwordController.removeListener(_onFieldChanged);
     _confirmPasswordController.removeListener(_onFieldChanged);
+    _emailController.removeListener(_onEmailChanged);
     _fullNameController.dispose();
     _studentIdController.dispose();
     _emailController.dispose();
@@ -138,6 +178,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return '$cleaned@easysit.app';
   }
 
+  // ============================================================================
+  // [SRI LANKAN PHONE NUMBER VALIDATION]
+  // ============================================================================
+  /// Validates that phone number is a valid 10-digit Sri Lankan phone number.
+  /// - Sri Lankan phone numbers: 10 digits starting with 0.
+  /// - Mobile operators: 070, 071, 072, 074, 075, 076, 077, 078.
+  /// - Landlines: 011, 021-027, 031-038, 041-047, 051-057, 063-067, 081, 091.
+  bool _isValidSriLankanPhone(String phone) {
+    final clean = phone.trim();
+    if (clean.length != 10) return false;
+    final slMobileRegex = RegExp(r'^07[01245678]\d{7}$');
+    final slGeneralRegex = RegExp(r'^0[1-9]\d{8}$');
+    return slMobileRegex.hasMatch(clean) || slGeneralRegex.hasMatch(clean);
+  }
+
   Future<void> _register() async {
     setState(() {
       _errorMessage = '';
@@ -169,20 +224,48 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    // 3. Validate personal email format
-    if (!emailInput.contains('@') || !emailInput.contains('.')) {
-      _showError('Please enter a valid personal or university email address');
+    // 3. Validate Sri Lankan phone number (must be exactly 10 digits, numbers only, valid SL prefix)
+    if (!_isValidSriLankanPhone(phone)) {
+      _showError(
+        'Please enter a valid 10-digit Sri Lankan phone number (e.g. 07XXXXXXXX)',
+      );
       return;
     }
 
-    // 4. Password strength validation
+    // 4. Validate University Email format
+    // Format: name-ct23001@stu.kln.ac.lk
+    // - name: student name
+    // - department: ct, cs, or et
+    // - academic year: 2 digits (e.g. 23 for 2023)
+    // - student registered number: 3 digits (e.g. 001)
+    // - domain: @stu.kln.ac.lk
+    final bool isAdmin = studentId.toLowerCase().startsWith('admin@');
+    if (!isAdmin) {
+      final RegExp uniEmailRegex = RegExp(
+        r'^[a-zA-Z0-9._%+-]+-(ct|cs|et)\d{2}\d{3}@stu\.kln\.ac\.lk$',
+        caseSensitive: false,
+      );
+      if (!uniEmailRegex.hasMatch(emailInput)) {
+        _showError(
+          'Please enter a valid university email (e.g. name-ct23001@stu.kln.ac.lk where department is ct, cs, or et)',
+        );
+        return;
+      }
+    } else {
+      if (!emailInput.contains('@') || !emailInput.contains('.')) {
+        _showError('Please enter a valid email address');
+        return;
+      }
+    }
+
+    // 5. Password strength validation
     final String? passwordError = PasswordValidator.getErrorMessage(password);
     if (passwordError != null) {
       _showError(passwordError);
       return;
     }
 
-    // 5. Check if passwords match
+    // 6. Check if passwords match
     if (password != confirmPassword) {
       _showError('Password and Confirm Password do not match');
       return;
@@ -383,7 +466,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       controller: _studentIdController,
                       decoration: InputDecoration(
                         labelText: 'Student ID',
-                        hintText: 'e.g. CT20xxxxx',
+                        hintText: 'e.g. CT23001',
                         filled: true,
                         fillColor: Colors.grey.shade50,
                         border: OutlineInputBorder(
@@ -410,8 +493,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
-                        labelText: 'Email (Gmail)',
-                        hintText: 'e.g. Enter your university email',
+                        labelText: 'University Email',
+                        hintText: 'e.g. name-ct23001@stu.kln.ac.lk',
                         filled: true,
                         fillColor: Colors.grey.shade50,
                         border: OutlineInputBorder(
@@ -437,6 +520,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     TextField(
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(10),
+                      ],
                       decoration: InputDecoration(
                         labelText: 'Phone Number',
                         hintText: 'e.g. 0712345678',

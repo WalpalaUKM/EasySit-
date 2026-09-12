@@ -367,12 +367,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (newName.isNotEmpty) {
       ProfileScreen.userNameNotifier.value = newName;
     }
+
+    final newPhone = _phoneCtrl.text.trim();
+    if (newPhone.isNotEmpty &&
+        (newPhone.length != 10 ||
+            !RegExp(r'^07[01245678]\d{7}$|^0[1-9]\d{8}$').hasMatch(newPhone))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please enter a valid 10-digit Sri Lankan phone number (e.g. 07XXXXXXXX)',
+          ),
+          backgroundColor: EasySitColors.errorFg,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
     try {
       await _firestore.collection('users').doc(_user.uid).update({
         'fullName': newName,
         'email': _emailCtrl.text.trim(),
-        'phone': _phoneCtrl.text.trim(),
+        'phone': newPhone,
       });
       setState(() {
         _fullName = newName;
@@ -571,8 +587,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     TextField(
                       controller: _phoneCtrl,
                       keyboardType: TextInputType.phone,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(10),
+                      ],
                       decoration: InputDecoration(
                         labelText: 'Phone Number',
+                        hintText: 'e.g. 0712345678',
                         prefixIcon: const Icon(
                           Icons.phone_outlined,
                           color: EasySitColors.primary,
