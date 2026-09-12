@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'student_home_screen.dart';
 import 'qr_scanner_screen.dart';
@@ -570,35 +571,91 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
           }
         },
         child: Scaffold(
-      backgroundColor: EasySitColors.appBackground,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top Bar
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Find Seats',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: EasySitColors.textPrimary,
-                    ),
+          backgroundColor: EasySitColors.appBackground,
+          appBar: AppBar(
+            toolbarHeight: 84,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            surfaceTintColor: Colors.transparent,
+            automaticallyImplyLeading: false,
+            backgroundColor: EasySitColors.screenHeaderBackground,
+            systemOverlayStyle: const SystemUiOverlayStyle(
+              statusBarColor: EasySitColors.screenHeaderBackground,
+              statusBarIconBrightness: Brightness.dark,
+              statusBarBrightness: Brightness.light,
+            ),
+            leadingWidth: 64,
+            leading: Center(
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: EasySitColors.surface,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: EasySitColors.divider),
+                  boxShadow: EasySitColors.cardShadows,
+                ),
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 18,
+                    color: EasySitColors.textPrimary,
                   ),
-                  const NotificationBellButton(),
-                ],
+                  onPressed: () {
+                    if (Navigator.canPop(context)) {
+                      Navigator.pop(context);
+                    } else {
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        AppPageRoute(
+                          builder: (_) => const StudentHomeScreen(),
+                        ),
+                        (route) => false,
+                      );
+                    }
+                  },
+                ),
               ),
             ),
-            const SizedBox(height: 10),
-            // Search Bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Container(
-                decoration: BoxDecoration(
+            titleSpacing: 0,
+            title: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Find Seats',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: EasySitColors.textPrimary,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Explore study spaces and availability',
+                  style: TextStyle(
+                    color: EasySitColors.secondaryText,
+                    fontSize: 13,
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+            actions: const [
+              NotificationBellButton(),
+              SizedBox(width: 20),
+            ],
+          ),
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 16),
+                    // Search Bar
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Container(
+                        decoration: BoxDecoration(
                   color: EasySitColors.surface,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
@@ -842,13 +899,12 @@ class _FindSeatsScreenState extends State<FindSeatsScreen> {
             ),
           ],
         ),
-      ),
-      bottomNavigationBar: AppBottomNav(
-        currentIndex: -1,
-        onTabSelected: _onNavTab,
+        bottomNavigationBar: AppBottomNav(
+          currentIndex: -1,
+          onTabSelected: _onNavTab,
+        ),
       ),
     ),
-  ),
-);
+  );
 }
 }

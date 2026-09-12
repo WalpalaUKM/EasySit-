@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'student_home_screen.dart';
@@ -122,76 +123,89 @@ class _NotificationScreenState extends State<NotificationScreen> {
         enableSwipeBack: true,
         onSwipeBack: _onBack,
         child: Scaffold(
-        backgroundColor: EasySitColors.appBackground,
-        appBar: AppBar(
-          toolbarHeight: 70,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          automaticallyImplyLeading: false,
           backgroundColor: EasySitColors.appBackground,
-          foregroundColor: EasySitColors.textPrimary,
-          leadingWidth: 64,
-          leading: Padding(
-            padding: const EdgeInsets.only(left: 16.0),
-            child: Center(
-              child: GestureDetector(
-                onTap: _onBack,
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: EasySitColors.surface,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: EasySitColors.divider),
-                    boxShadow: [
-                      BoxShadow(
-                        color: EasySitColors.cardShadow,
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+          appBar: AppBar(
+            toolbarHeight: 84,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            automaticallyImplyLeading: false,
+            backgroundColor: EasySitColors.screenHeaderBackground,
+            systemOverlayStyle: const SystemUiOverlayStyle(
+              statusBarColor: EasySitColors.screenHeaderBackground,
+              statusBarIconBrightness: Brightness.dark,
+              statusBarBrightness: Brightness.light,
+            ),
+            foregroundColor: EasySitColors.textPrimary,
+            leadingWidth: 64,
+            leading: Center(
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: EasySitColors.surface,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: EasySitColors.divider),
+                  boxShadow: EasySitColors.cardShadows,
+                ),
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 18,
+                    color: EasySitColors.textPrimary,
                   ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.arrow_back_ios_new,
-                      size: 18,
-                      color: EasySitColors.textPrimary,
+                  onPressed: _onBack,
+                ),
+              ),
+            ),
+            titleSpacing: 0,
+            title: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Notifications',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 24,
+                    color: EasySitColors.textPrimary,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Updates and alerts for your account',
+                  style: TextStyle(
+                    color: EasySitColors.secondaryText,
+                    fontSize: 13,
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 12.0),
+                child: TextButton(
+                  onPressed: _clearAll,
+                  child: const Text(
+                    'Clear All',
+                    style: TextStyle(
+                      color: EasySitColors.primary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
                     ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
-          title: const Text(
-            'Notifications',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: EasySitColors.textPrimary),
+          bottomNavigationBar: AppBottomNav(
+            currentIndex: -1,
+            onTabSelected: _onNavTab,
           ),
-          centerTitle: true,
-          actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 12.0),
-              child: TextButton(
-                onPressed: _clearAll,
-                child: const Text(
-                  'Clear All',
-                  style: TextStyle(
-                    color: EasySitColors.primary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        bottomNavigationBar: AppBottomNav(
-          currentIndex: -1,
-          onTabSelected: _onNavTab,
-        ),
-        body:
-            _user == null
-                ? _buildEmptyState()
-                : StreamBuilder<DocumentSnapshot>(
+          body: _user == null
+              ? _buildEmptyState()
+              : StreamBuilder<DocumentSnapshot>(
                   stream:
                       _firestore.collection('users').doc(_user.uid).snapshots(),
                   builder: (context, userSnap) {

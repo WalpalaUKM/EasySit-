@@ -745,25 +745,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final scaffold = Scaffold(
       backgroundColor: EasySitColors.appBackground,
       appBar: AppBar(
-        toolbarHeight: 72,
+        toolbarHeight: 84,
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
         automaticallyImplyLeading: false,
-        backgroundColor: EasySitColors.appBackground,
+        backgroundColor: EasySitColors.screenHeaderBackground,
         systemOverlayStyle: const SystemUiOverlayStyle(
-          statusBarColor: EasySitColors.appBackground,
+          statusBarColor: EasySitColors.screenHeaderBackground,
           statusBarIconBrightness: Brightness.dark,
           statusBarBrightness: Brightness.light,
         ),
         titleSpacing: 20,
-        title: const Text(
-          'Profile',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: EasySitColors.textPrimary,
-          ),
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Profile',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: EasySitColors.textPrimary,
+              ),
+            ),
+            SizedBox(height: 4),
+            Text(
+              'Manage your student account',
+              style: TextStyle(
+                color: EasySitColors.secondaryText,
+                fontSize: 13,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+          ],
         ),
         actions: const [
           NotificationBellButton(),
@@ -773,7 +788,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(
           horizontal: 20,
-          vertical: 12,
+          vertical: 16,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

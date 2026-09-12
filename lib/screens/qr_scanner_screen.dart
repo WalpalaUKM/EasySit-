@@ -1372,66 +1372,89 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       extendBody: true,
       backgroundColor: EasySitColors.appBackground,
       appBar: AppBar(
-        toolbarHeight: 72,
+        toolbarHeight: 84,
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
         automaticallyImplyLeading: false,
-        backgroundColor: EasySitColors.appBackground,
+        backgroundColor: EasySitColors.screenHeaderBackground,
         systemOverlayStyle: const SystemUiOverlayStyle(
-          statusBarColor: EasySitColors.appBackground,
+          statusBarColor: EasySitColors.screenHeaderBackground,
           statusBarIconBrightness: Brightness.dark,
           statusBarBrightness: Brightness.light,
         ),
         titleSpacing: 20,
-        title: const Text(
-          'Scan QR Code',
-          style: TextStyle(
-            fontFamily: 'Inter',
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: EasySitColors.textPrimary,
-          ),
-        ),
-        actions: [
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 14),
-            decoration: BoxDecoration(
-              color: EasySitColors.surface,
-              shape: BoxShape.circle,
-              border: Border.all(color: EasySitColors.divider),
-              boxShadow: EasySitColors.cardShadows,
-            ),
-            child: IconButton(
-              icon: const Icon(
-                Icons.flash_on_rounded,
-                size: 20,
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Scan QR Code',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
                 color: EasySitColors.textPrimary,
               ),
-              onPressed: () => _controller.toggleTorch(),
-              tooltip: 'Toggle Flash',
+            ),
+            SizedBox(height: 4),
+            Text(
+              'Point camera at the seat QR code',
+              style: TextStyle(
+                color: EasySitColors.secondaryText,
+                fontSize: 13,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          Center(
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: EasySitColors.surface,
+                shape: BoxShape.circle,
+                border: Border.all(color: EasySitColors.divider),
+                boxShadow: EasySitColors.cardShadows,
+              ),
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                icon: const Icon(
+                  Icons.flash_on_rounded,
+                  size: 20,
+                  color: EasySitColors.textPrimary,
+                ),
+                onPressed: () => _controller.toggleTorch(),
+                tooltip: 'Toggle Flash',
+              ),
             ),
           ),
           const SizedBox(width: 8),
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 14),
-            decoration: BoxDecoration(
-              color: EasySitColors.surface,
-              shape: BoxShape.circle,
-              border: Border.all(color: EasySitColors.divider),
-              boxShadow: EasySitColors.cardShadows,
-            ),
-            child: IconButton(
-              icon: const Icon(
-                Icons.flip_camera_android_rounded,
-                size: 20,
-                color: EasySitColors.textPrimary,
+          Center(
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: EasySitColors.surface,
+                shape: BoxShape.circle,
+                border: Border.all(color: EasySitColors.divider),
+                boxShadow: EasySitColors.cardShadows,
               ),
-              onPressed: () => _controller.switchCamera(),
-              tooltip: 'Switch Camera',
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                icon: const Icon(
+                  Icons.flip_camera_android_rounded,
+                  size: 20,
+                  color: EasySitColors.textPrimary,
+                ),
+                onPressed: () => _controller.switchCamera(),
+                tooltip: 'Switch Camera',
+              ),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 20),
         ],
       ),
       body: Stack(

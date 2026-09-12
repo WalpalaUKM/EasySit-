@@ -778,9 +778,9 @@ class _SessionScreenState extends State<SessionScreen>
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
         automaticallyImplyLeading: false,
-        backgroundColor: EasySitColors.appBackground,
+        backgroundColor: EasySitColors.screenHeaderBackground,
         systemOverlayStyle: const SystemUiOverlayStyle(
-          statusBarColor: EasySitColors.appBackground,
+          statusBarColor: EasySitColors.screenHeaderBackground,
           statusBarIconBrightness: Brightness.dark,
           statusBarBrightness: Brightness.light,
         ),
