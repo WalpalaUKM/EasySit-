@@ -42,15 +42,13 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
   @override
   void initState() {
     super.initState();
-    _seatStream = _firestore
-        .collection('seats')
-        .where('roomId', isEqualTo: widget.roomId)
-        .snapshots();
+    _seatStream =
+        _firestore
+            .collection('seats')
+            .where('roomId', isEqualTo: widget.roomId)
+            .snapshots();
 
-    // [REAL-TIME EXPIRATION TICKER]:
-    // Unit: Seconds. Runs every 1 second (Duration(seconds: 1)).
-    // Re-evaluates seat expiration on screen so that when a seat's 10-minute pending
-    // or 2-minute booked timer hits 0, its color updates from occupied/pending to available instantly.
+    // Re-evaluate seat expiration every second
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
     });
@@ -62,17 +60,9 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
     super.dispose();
   }
 
-  // ============================================================================
-  // [MAXIMUM BOOKING LIMIT VALIDATION]
-  // ============================================================================
-  /// EasySit enforces a strict maximum limit of ONE (1) active seat per student:
-  /// Unit: Seats (Max: 1 active seat, either 'pending' reservation or 'booked' session).
-  ///
-  /// How to change safely:
-  /// If you wish to allow multiple seats (e.g. max 2 seats), change `.limit(1)` to `.limit(2)`
-  /// and check if `(pending.docs.length + booked.docs.length) >= MAX_ALLOWED_SEATS`.
+  // Check if student already has an active booking or reservation
   Future<bool> _hasExistingBooking(String uid) async {
-    // 1. Check if user already holds a pending reservation
+    // Check pending reservation
     QuerySnapshot pending =
         await _firestore
             .collection('seats')
@@ -81,18 +71,17 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
             .get();
     if (pending.docs.isNotEmpty) {
       final pData = pending.docs.first.data() as Map<String, dynamic>;
-      // If the pending reservation already elapsed past 20 minutes, release it
       if (SeatExpiryService.isSeatExpired(pData)) {
         await SeatExpiryService.releaseExpiredSeatIfNeeded(
           pending.docs.first.id,
           pData,
         );
       } else {
-        return true; // Student already has an active pending seat
+        return true;
       }
     }
 
-    // 2. Check if user already has an active booked session
+    // Check active booked session
     QuerySnapshot booked =
         await _firestore
             .collection('seats')
@@ -101,17 +90,16 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
             .get();
     if (booked.docs.isNotEmpty) {
       final bData = booked.docs.first.data() as Map<String, dynamic>;
-      // If the booked session already elapsed past 2 minutes, release it
       if (SeatExpiryService.isSeatExpired(bData)) {
         await SeatExpiryService.releaseExpiredSeatIfNeeded(
           booked.docs.first.id,
           bData,
         );
       } else {
-        return true; // Student already has an active booked seat
+        return true;
       }
     }
-    return false; // Student has no active booking, allowed to book
+    return false;
   }
 
   void _showActiveBookingPopup(BuildContext context) {
@@ -136,10 +124,7 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
             vertical: 24,
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 24,
-              vertical: 28,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -186,14 +171,7 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
     );
   }
 
-  // ============================================================================
-  // [SEAT RESERVATION LOGIC]
-  // ============================================================================
-  /// Reserves a seat for the logged-in student:
-  /// - Reservation duration / Grace period: 20 minutes (unit: minutes).
-  /// - Status changes: 'available' -> 'pending'.
-  /// - Sets 'pendingAt' to current server timestamp.
-  /// - Student must scan the physical QR code at the seat within 20 minutes to confirm.
+  // Reserve a seat
   Future<void> _reserveSeat(String seatId, String seatNumber) async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -208,7 +186,6 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
       return;
     }
 
-    // Validate that the student does not already hold another active seat
     bool hasBooking = await _hasExistingBooking(user.uid);
     if (hasBooking) {
       if (mounted) {
@@ -238,7 +215,6 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Top Seat Badge Icon
                   Container(
                     width: 64,
                     height: 64,
@@ -259,8 +235,6 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-
-                  // Title
                   const Text(
                     'Reserve Seat',
                     style: TextStyle(
@@ -271,8 +245,6 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                     ),
                   ),
                   const SizedBox(height: 6),
-
-                  // Seat & Location pill
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -304,8 +276,6 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                     ),
                   ),
                   const SizedBox(height: 18),
-
-                  // 10-minute warning alert card (Grace period display)
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
@@ -355,18 +325,17 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-
-                  // Action Buttons
                   Row(
                     children: [
-                      // Cancel Button
                       Expanded(
                         child: SizedBox(
                           height: 48,
                           child: OutlinedButton(
                             onPressed: () => Navigator.pop(context, false),
                             style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: EasySitColors.divider),
+                              side: const BorderSide(
+                                color: EasySitColors.divider,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
                               ),
@@ -384,8 +353,6 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                         ),
                       ),
                       const SizedBox(width: 12),
-
-                      // Reserve Button
                       Expanded(
                         child: SizedBox(
                           height: 48,
@@ -423,7 +390,9 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
     try {
       final now = DateTime.now();
 
-      final reserveResult = await _firestore.runTransaction<String?>((transaction) async {
+      final reserveResult = await _firestore.runTransaction<String?>((
+        transaction,
+      ) async {
         final seatRef = _firestore.collection('seats').doc(seatId);
         final snapshot = await transaction.get(seatRef);
         if (!snapshot.exists) {
@@ -451,7 +420,6 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
           }
         }
 
-        // Transition seat to 'pending' atomically
         transaction.update(seatRef, {
           'status': 'pending',
           'pendingBy': user.uid,
@@ -499,10 +467,11 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
           Navigator.pushReplacement(
             context,
             AppPageRoute(
-              builder: (_) => SessionScreen(
-                initialBooking: pendingSessionData,
-                initialStatus: 'pending',
-              ),
+              builder:
+                  (_) => SessionScreen(
+                    initialBooking: pendingSessionData,
+                    initialStatus: 'pending',
+                  ),
             ),
           );
         }
@@ -510,17 +479,16 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: EasySitColors.error),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: EasySitColors.error,
+          ),
         );
       }
     }
   }
 
-  // ============================================================================
-  // [MANUAL SEAT RELEASE FOR PENDING RESERVATIONS]
-  // ============================================================================
-  /// Allows a student to voluntarily cancel/release their pending reservation
-  /// before the 10-minute grace period elapses, freeing it for other students.
+  // Cancel pending reservation
   Future<void> _cancelPending(String seatId, String seatNumber) async {
     bool? confirm = await showDialog<bool>(
       context: context,
@@ -590,7 +558,9 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                             onPressed: () => Navigator.pop(context, false),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: EasySitColors.secondaryText,
-                              side: const BorderSide(color: EasySitColors.divider),
+                              side: const BorderSide(
+                                color: EasySitColors.divider,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -640,7 +610,6 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
         if (seatSnap.exists) {
           final sData = seatSnap.data();
           if (sData?['pendingBy'] != user.uid) {
-            // Seat is not reserved by this student; do not touch
             return;
           }
         }
@@ -663,7 +632,10 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: EasySitColors.error),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: EasySitColors.error,
+          ),
         );
       }
     }
@@ -710,9 +682,7 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
         } else {
           Navigator.pushAndRemoveUntil(
             context,
-            AppPageRoute(
-              builder: (_) => const StudentHomeScreen(),
-            ),
+            AppPageRoute(builder: (_) => const StudentHomeScreen()),
             (route) => false,
           );
         }
@@ -768,9 +738,7 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                     } else {
                       Navigator.pushAndRemoveUntil(
                         context,
-                        AppPageRoute(
-                          builder: (_) => const StudentHomeScreen(),
-                        ),
+                        AppPageRoute(builder: (_) => const StudentHomeScreen()),
                         (route) => false,
                       );
                     }
@@ -801,311 +769,333 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
                 ),
               ],
             ),
-            actions: const [
-              NotificationBellButton(),
-              SizedBox(width: 20),
-            ],
+            actions: const [NotificationBellButton(), SizedBox(width: 20)],
           ),
           body: StreamBuilder<QuerySnapshot>(
-                  stream: _seatStream,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting &&
-                        !snapshot.hasData) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    if (snapshot.hasError) {
-                      return Center(child: Text('Error: ${snapshot.error}'));
-                    }
-                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                      return const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.event_seat,
-                              size: 64,
-                              color: EasySitColors.secondaryText,
-                            ),
-                            SizedBox(height: 16),
-                            Text(
-                              'No seats available in this room',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: EasySitColors.secondaryText,
-                              ),
-                            ),
-                          ],
+            stream: _seatStream,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  !snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Center(child: Text('Error: ${snapshot.error}'));
+              }
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.event_seat,
+                        size: 64,
+                        color: EasySitColors.secondaryText,
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'No seats available in this room',
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: EasySitColors.secondaryText,
                         ),
-                      );
-                    }
+                      ),
+                    ],
+                  ),
+                );
+              }
 
-                    var seats = snapshot.data!.docs;
-                    seats.sort((a, b) {
-                      var aNum =
-                          int.tryParse(
-                            (a.data() as Map)['seatNumber'] ?? '0',
-                          ) ??
-                          0;
-                      var bNum =
-                          int.tryParse(
-                            (b.data() as Map)['seatNumber'] ?? '0',
-                          ) ??
-                          0;
-                      return aNum.compareTo(bNum);
-                    });
+              var seats = snapshot.data!.docs;
+              seats.sort((a, b) {
+                var aNum =
+                    int.tryParse((a.data() as Map)['seatNumber'] ?? '0') ?? 0;
+                var bNum =
+                    int.tryParse((b.data() as Map)['seatNumber'] ?? '0') ?? 0;
+                return aNum.compareTo(bNum);
+              });
 
-                    return Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+              return Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
                         children: [
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: [
-                                _legendItem(EasySitColors.seatAvailableFill, EasySitColors.seatAvailableText, 'Available'),
-                                const SizedBox(width: 12),
-                                _legendItem(EasySitColors.seatPendingFill, EasySitColors.seatPendingText, 'Pending'),
-                                const SizedBox(width: 12),
-                                _legendItem(EasySitColors.seatOccupiedFill, EasySitColors.seatOccupiedText, 'Booked'),
-                                const SizedBox(width: 12),
-                                _legendItem(EasySitColors.seatSelectedFill, Colors.white, 'My Seat', isFilled: true),
-                                const SizedBox(width: 12),
-                                _legendItem(EasySitColors.seatUnavailableFill, EasySitColors.seatUnavailableText, 'Closed'),
-                              ],
-                            ),
+                          _legendItem(
+                            EasySitColors.seatAvailableFill,
+                            EasySitColors.seatAvailableText,
+                            'Available',
                           ),
-                          const SizedBox(height: 16),
-                          Expanded(
-                            child: GridView.builder(
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 4,
-                                    crossAxisSpacing: 12,
-                                    mainAxisSpacing: 12,
-                                    childAspectRatio: 0.9,
-                                  ),
-                              itemCount: seats.length,
-                              itemBuilder: (context, index) {
-                                var seatData =
-                                    seats[index].data() as Map<String, dynamic>;
-                                String seatId = seats[index].id;
-                                String seatNumber =
-                                    seatData['seatNumber'] ?? '?';
-                                String status =
-                                    seatData['status'] ?? 'available';
-                                String? pendingBy =
-                                    seatData['pendingBy'] as String?;
-                                String? bookedBy =
-                                    seatData['bookedBy'] as String?;
-                                User? user = FirebaseAuth.instance.currentUser;
-                                String myUid = user?.uid ?? '';
-
-                                // Dynamic real-time expiration check
-                                bool isExpired = SeatExpiryService.isSeatExpired(seatData);
-                                String effectiveStatus = isExpired ? 'available' : status;
-                                if (isExpired) {
-                                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                                    SeatExpiryService.releaseExpiredSeatIfNeeded(seatId, seatData);
-                                  });
-                                }
-
-                                bool isLocationClosed = effectiveStatus == 'unavailable' ||
-                                    seatData['isBuildingBlocked'] == true ||
-                                    seatData['isFloorBlocked'] == true ||
-                                    seatData['isRoomBlocked'] == true;
-                                if (isLocationClosed) {
-                                  effectiveStatus = 'unavailable';
-                                }
-
-                                Color bgColor;
-                                Color borderColor;
-                                Color iconColor;
-                                Color textColor;
-                                bool isMine = false;
-                                VoidCallback? onTap;
-
-                                if (effectiveStatus == 'unavailable') {
-                                  bgColor = EasySitColors.seatUnavailableFill;
-                                  borderColor = EasySitColors.divider;
-                                  iconColor = EasySitColors.seatUnavailableText;
-                                  textColor = EasySitColors.seatUnavailableText;
-                                  String blockedReason = seatData['blockedReason'] ?? 'Facility maintenance';
-                                  onTap = () {
-                                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Seat $seatNumber is unavailable. Reason: $blockedReason',
-                                        ),
-                                        backgroundColor: EasySitColors.error,
-                                        duration: const Duration(seconds: 3),
-                                      ),
-                                    );
-                                  };
-                                } else if (effectiveStatus == 'available') {
-                                  bgColor = EasySitColors.seatAvailableFill;
-                                  borderColor = EasySitColors.seatAvailableText;
-                                  iconColor = EasySitColors.seatAvailableText;
-                                  textColor = EasySitColors.seatAvailableText;
-                                  onTap =
-                                      () => _reserveSeat(seatId, seatNumber);
-                                } else if (effectiveStatus == 'pending') {
-                                  isMine = pendingBy == myUid;
-                                  bgColor = EasySitColors.seatPendingFill;
-                                  borderColor = isMine ? EasySitColors.primary : EasySitColors.seatPendingText;
-                                  iconColor = EasySitColors.seatPendingText;
-                                  textColor = EasySitColors.seatPendingText;
-                                  if (isMine) {
-                                    onTap =
-                                        () =>
-                                            _cancelPending(seatId, seatNumber);
-                                  } else {
-                                    onTap = () {
-                                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Seat $seatNumber is currently pending confirmation by another student.',
-                                          ),
-                                          backgroundColor: EasySitColors.warningFg,
-                                          duration: const Duration(seconds: 2),
-                                        ),
-                                      );
-                                    };
-                                  }
-                                } else {
-                                  // Booked or occupied
-                                  isMine = bookedBy == myUid;
-                                  bgColor =
-                                      isMine
-                                          ? EasySitColors.seatSelectedFill
-                                          : EasySitColors.seatOccupiedFill;
-                                  borderColor =
-                                      isMine
-                                          ? EasySitColors.focusRing
-                                          : EasySitColors.divider;
-                                  iconColor =
-                                      isMine
-                                          ? EasySitColors.onPrimary
-                                          : EasySitColors.seatOccupiedText;
-                                  textColor =
-                                      isMine
-                                          ? EasySitColors.onPrimary
-                                          : EasySitColors.seatOccupiedText;
-                                }
-
-                                return GestureDetector(
-                                  onTap: onTap,
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
-                                    decoration: BoxDecoration(
-                                      color: bgColor,
-                                      borderRadius: BorderRadius.circular(14),
-                                      border: Border.all(
-                                        color: borderColor,
-                                        width: 2.0,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: EasySitColors.cardShadow,
-                                          blurRadius: 6,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          effectiveStatus == 'unavailable'
-                                              ? Icons.do_not_disturb_on_outlined
-                                              : (isMine
-                                                  ? (effectiveStatus == 'pending' ? Icons.access_time_rounded : Icons.check_circle_outline)
-                                                  : (effectiveStatus == 'pending'
-                                                      ? Icons.access_time_rounded
-                                                      : (effectiveStatus == 'available' ? Icons.event_seat : Icons.lock_outline))),
-                                          size: 24,
-                                          color: iconColor,
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          seatNumber,
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.bold,
-                                            color: textColor,
-                                          ),
-                                        ),
-                                        if (effectiveStatus == 'pending')
-                                          Container(
-                                            margin: const EdgeInsets.only(
-                                              top: 4,
-                                            ),
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 6,
-                                              vertical: 2,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: EasySitColors.warningBorder,
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                              isMine ? 'Mine' : 'Pending',
-                                              style: const TextStyle(
-                                                fontSize: 8,
-                                                fontWeight: FontWeight.w600,
-                                                color: EasySitColors.warningFg,
-                                              ),
-                                            ),
-                                          ),
-                                        if (effectiveStatus == 'unavailable')
-                                          Container(
-                                            margin: const EdgeInsets.only(
-                                              top: 4,
-                                            ),
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 6,
-                                              vertical: 2,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: EasySitColors.divider,
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
-                                            child: const Text(
-                                              'Closed',
-                                              style: TextStyle(
-                                                fontSize: 8,
-                                                fontWeight: FontWeight.w600,
-                                                color: EasySitColors.disabledText,
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
+                          const SizedBox(width: 12),
+                          _legendItem(
+                            EasySitColors.seatPendingFill,
+                            EasySitColors.seatPendingText,
+                            'Pending',
+                          ),
+                          const SizedBox(width: 12),
+                          _legendItem(
+                            EasySitColors.seatOccupiedFill,
+                            EasySitColors.seatOccupiedText,
+                            'Booked',
+                          ),
+                          const SizedBox(width: 12),
+                          _legendItem(
+                            EasySitColors.seatSelectedFill,
+                            Colors.white,
+                            'My Seat',
+                            isFilled: true,
+                          ),
+                          const SizedBox(width: 12),
+                          _legendItem(
+                            EasySitColors.seatUnavailableFill,
+                            EasySitColors.seatUnavailableText,
+                            'Closed',
                           ),
                         ],
                       ),
-                    );
-                  },
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: GridView.builder(
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 4,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              childAspectRatio: 0.9,
+                            ),
+                        itemCount: seats.length,
+                        itemBuilder: (context, index) {
+                          var seatData =
+                              seats[index].data() as Map<String, dynamic>;
+                          String seatId = seats[index].id;
+                          String seatNumber = seatData['seatNumber'] ?? '?';
+                          String status = seatData['status'] ?? 'available';
+                          String? pendingBy = seatData['pendingBy'] as String?;
+                          String? bookedBy = seatData['bookedBy'] as String?;
+                          User? user = FirebaseAuth.instance.currentUser;
+                          String myUid = user?.uid ?? '';
+
+                          bool isExpired = SeatExpiryService.isSeatExpired(
+                            seatData,
+                          );
+                          String effectiveStatus =
+                              isExpired ? 'available' : status;
+                          if (isExpired) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              SeatExpiryService.releaseExpiredSeatIfNeeded(
+                                seatId,
+                                seatData,
+                              );
+                            });
+                          }
+
+                          bool isLocationClosed =
+                              effectiveStatus == 'unavailable' ||
+                              seatData['isBuildingBlocked'] == true ||
+                              seatData['isFloorBlocked'] == true ||
+                              seatData['isRoomBlocked'] == true;
+                          if (isLocationClosed) {
+                            effectiveStatus = 'unavailable';
+                          }
+
+                          Color bgColor;
+                          Color borderColor;
+                          Color iconColor;
+                          Color textColor;
+                          bool isMine = false;
+                          VoidCallback? onTap;
+
+                          if (effectiveStatus == 'unavailable') {
+                            bgColor = EasySitColors.seatUnavailableFill;
+                            borderColor = EasySitColors.divider;
+                            iconColor = EasySitColors.seatUnavailableText;
+                            textColor = EasySitColors.seatUnavailableText;
+                            String blockedReason =
+                                seatData['blockedReason'] ??
+                                'Facility maintenance';
+                            onTap = () {
+                              ScaffoldMessenger.of(
+                                context,
+                              ).hideCurrentSnackBar();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Seat $seatNumber is unavailable. Reason: $blockedReason',
+                                  ),
+                                  backgroundColor: EasySitColors.error,
+                                  duration: const Duration(seconds: 3),
+                                ),
+                              );
+                            };
+                          } else if (effectiveStatus == 'available') {
+                            bgColor = EasySitColors.seatAvailableFill;
+                            borderColor = EasySitColors.seatAvailableText;
+                            iconColor = EasySitColors.seatAvailableText;
+                            textColor = EasySitColors.seatAvailableText;
+                            onTap = () => _reserveSeat(seatId, seatNumber);
+                          } else if (effectiveStatus == 'pending') {
+                            isMine = pendingBy == myUid;
+                            bgColor = EasySitColors.seatPendingFill;
+                            borderColor =
+                                isMine
+                                    ? EasySitColors.primary
+                                    : EasySitColors.seatPendingText;
+                            iconColor = EasySitColors.seatPendingText;
+                            textColor = EasySitColors.seatPendingText;
+                            if (isMine) {
+                              onTap = () => _cancelPending(seatId, seatNumber);
+                            } else {
+                              onTap = () {
+                                ScaffoldMessenger.of(
+                                  context,
+                                ).hideCurrentSnackBar();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Seat $seatNumber is currently pending confirmation by another student.',
+                                    ),
+                                    backgroundColor: EasySitColors.warningFg,
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              };
+                            }
+                          } else {
+                            isMine = bookedBy == myUid;
+                            bgColor =
+                                isMine
+                                    ? EasySitColors.seatSelectedFill
+                                    : EasySitColors.seatOccupiedFill;
+                            borderColor =
+                                isMine
+                                    ? EasySitColors.focusRing
+                                    : EasySitColors.divider;
+                            iconColor =
+                                isMine
+                                    ? EasySitColors.onPrimary
+                                    : EasySitColors.seatOccupiedText;
+                            textColor =
+                                isMine
+                                    ? EasySitColors.onPrimary
+                                    : EasySitColors.seatOccupiedText;
+                          }
+
+                          return GestureDetector(
+                            onTap: onTap,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              decoration: BoxDecoration(
+                                color: bgColor,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: borderColor,
+                                  width: 2.0,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: EasySitColors.cardShadow,
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    effectiveStatus == 'unavailable'
+                                        ? Icons.do_not_disturb_on_outlined
+                                        : (isMine
+                                            ? (effectiveStatus == 'pending'
+                                                ? Icons.access_time_rounded
+                                                : Icons.check_circle_outline)
+                                            : (effectiveStatus == 'pending'
+                                                ? Icons.access_time_rounded
+                                                : (effectiveStatus ==
+                                                        'available'
+                                                    ? Icons.event_seat
+                                                    : Icons.lock_outline))),
+                                    size: 24,
+                                    color: iconColor,
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    seatNumber,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: textColor,
+                                    ),
+                                  ),
+                                  if (effectiveStatus == 'pending')
+                                    Container(
+                                      margin: const EdgeInsets.only(top: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: EasySitColors.warningBorder,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        isMine ? 'Mine' : 'Pending',
+                                        style: const TextStyle(
+                                          fontSize: 8,
+                                          fontWeight: FontWeight.w600,
+                                          color: EasySitColors.warningFg,
+                                        ),
+                                      ),
+                                    ),
+                                  if (effectiveStatus == 'unavailable')
+                                    Container(
+                                      margin: const EdgeInsets.only(top: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: EasySitColors.divider,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: const Text(
+                                        'Closed',
+                                        style: TextStyle(
+                                          fontSize: 8,
+                                          fontWeight: FontWeight.w600,
+                                          color: EasySitColors.disabledText,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-            bottomNavigationBar: AppBottomNav(
-              currentIndex: 0,
-              onTabSelected: _onNavTab,
-            ),
+              );
+            },
+          ),
+          bottomNavigationBar: AppBottomNav(
+            currentIndex: 0,
+            onTabSelected: _onNavTab,
           ),
         ),
-      );
+      ),
+    );
   }
 
-  Widget _legendItem(Color fill, Color border, String label, {bool isFilled = false}) {
+  Widget _legendItem(
+    Color fill,
+    Color border,
+    String label, {
+    bool isFilled = false,
+  }) {
     return Row(
       children: [
         Container(
@@ -1118,9 +1108,15 @@ class _SeatBookingScreenState extends State<SeatBookingScreen> {
           ),
         ),
         const SizedBox(width: 4),
-        Text(label, style: TextStyle(fontSize: 11, color: isFilled ? EasySitColors.textPrimary : border, fontWeight: FontWeight.w600)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: isFilled ? EasySitColors.textPrimary : border,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ],
     );
   }
 }
-

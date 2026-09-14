@@ -3,25 +3,17 @@ import '../utils/booking_timer_config.dart';
 import 'user_stats_service.dart';
 
 class SeatExpiryService {
-  // ============================================================================
-  // TIMING CONFIGURATION (REFERENCED FROM CENTRAL BOOKING TIMER CONFIG)
-  // ============================================================================
-  // Active booking duration in minutes (2 hours = 120 minutes)
+  // Booking duration constants
   static const int bookedDurationMinutes =
       BookingTimerConfig.activeBookingDurationMinutes;
-
-  // Pending reservation duration in minutes (20 minutes)
   static const int pendingDurationMinutes =
       BookingTimerConfig.pendingReservationDurationMinutes;
-
-  // Warning notification time in minutes (2 minutes)
   static const int warningNotificationMinutes =
       BookingTimerConfig.warningNotificationMinutes;
 
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  /// REAL-TIME CHECK: Returns true if seat status is 'booked' or 'pending'
-  /// but its allotted duration has expired based on saved Firestore timestamp.
+  /// Returns true if seat status is 'booked' or 'pending' but has expired.
   static bool isSeatExpired(Map<String, dynamic>? seatData) {
     if (seatData == null) return false;
     final String status = seatData['status']?.toString() ?? 'available';
@@ -72,9 +64,7 @@ class SeatExpiryService {
 
   static final Set<String> _inFlightReleases = {};
 
-  /// SEAT-RELEASE LOGIC:
-  /// Updates Firestore seat document to 'available', deletes booking fields,
-  /// and saves the student's completed session study statistics.
+  /// Releases expired seat if needed and records study stats.
   static Future<bool> releaseExpiredSeatIfNeeded(
     String seatId,
     Map<String, dynamic>? seatData,
@@ -122,9 +112,7 @@ class SeatExpiryService {
     }
   }
 
-  /// GLOBAL SWEEP (SEAT-RELEASE LOGIC):
-  /// Runs across all booked and pending seats in Firestore.
-  /// Releases any expired seat regardless of whether the user who booked it is online.
+  /// Releases all expired booked and pending seats across Firestore.
   static Future<int> releaseAllExpiredSeatsGlobal() async {
     try {
       int releasedCount = 0;
